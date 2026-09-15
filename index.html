@@ -12,11 +12,11 @@
  <canvas id="cv3"></canvas>
  <canvas id="cv"></canvas>
  <div id="hud"></div>
-<button id="mbtn" onclick="document.getElementById('menu').classList.toggle('on')">⚙️</button>
+ <button id="mbtn" onclick="var m=document.getElementById('menu');var o=m.style.display==='block';m.style.display=o?'none':'block';m.style.transform='none';m.style.opacity='1'">⚙️</button>
  <button id="vbtn">🎙</button>
  <input id="cmd" placeholder="command likho… (Enter)">
  <div id="toast"></div>
- <aside id="menu">
+ <aside id="menu" style="display:none">
   <b style="color:#0ff;font-size:15px">⚙️ OPTIONS</b>
   <label>Skeleton Points <input type="checkbox" data-o="skeleton" checked></label>
   <label>Holo-Vision Mode <input type="checkbox" data-o="holo"></label>
@@ -26,11 +26,11 @@
   <button id="bSave">📸 Photo Save Karo</button>
   <div style="opacity:.6;font-size:11px;line-height:1.6">
    Gestures (select ke baad): 👉hold=select • 👉👉=morph • 🖐=move • 🤏grab=ghuma+size • 🤲🤲=stretch • ✊hold=delete • ✊flash=deselect<br>
-   Voice/text (add+commands): "cube lao" "sphere banao" "sheet banao" "ghumao 45 degree" "lamba karo" "laal karo" "hatao" "idea note karo ..."</div>
+   Voice/text: "cube lao" "sphere banao" "sheet banao" "ghumao 45 degree" "lamba karo" "laal karo" "hatao" "idea note karo ..."</div>
  </aside>
  <div id="start">
   <h1>M-EDGE<span style="color:#0ff">SPACE</span></h1>
-  <p style="opacity:.6;font-size:20px">Meri Maiya 🌸</p>
+  <p style="opacity:.6;font-size:11px">M = Maiya 🌸</p>
   <p>3D Studio + bolne wala agent. 🎙 dabao, bolo: "cube lao". Camera allow karo.</p>
   <button id="btn">🎥 CAMERA START KARO</button>
   <div id="stat"></div>
