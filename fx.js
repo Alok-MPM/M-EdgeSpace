@@ -119,7 +119,7 @@ function renderFrame(H,G,t,headE){
  liveAuto=[];
  const hasPeace=G.includes('PEACE');
  if(H.length===2&&!hasPeace&&(S.design==='AUTO'||S.design==='SLAB'||S.design==='STATIC')){
-  const q=[H[0][8],H[1][8],H[1][4],H[0][4];
+  const q=[H[0][8],H[1][8],H[1][4],H[0][4]];
   const ty=(S.design==='SLAB'||(S.design==='AUTO'&&G[0]==='PALM'&&G[1]==='PALM'))?'SLAB':'STATIC';
   if(ty==='SLAB')slab(q,t);else staticQ(extQ(q,1.15));
   liveAuto.push({type:ty,q})}
