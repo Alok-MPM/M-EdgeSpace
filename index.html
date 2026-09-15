@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HOLO HAND FX — AR Studio</title>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<div id="wrap">
+ <video id="vid" playsinline autoplay muted></video>
+ <canvas id="cv"></canvas>
+ <div id="hud"></div>
+ <button id="mbtn">⚙️</button>
+ <div id="dock"></div>
+ <div id="toast"></div>
+ <aside id="menu">
+  <b style="color:#0ff;font-size:15px">⚙️ OPTIONS</b>
+  <label>Skeleton Points <input type="checkbox" data-o="skeleton" checked></label>
+  <label>Fist = Glitch <input type="checkbox" data-o="glitch" checked></label>
+  <label>Holo-Vision Mode <input type="checkbox" data-o="holo"></label>
+  <label>Pinned Spin <input type="checkbox" data-o="spin" checked></label>
+  <label>Head Control (nod/shake) <input type="checkbox" data-o="head" checked></label>
+  <label>Perf Mode (no filters) <input type="checkbox" data-o="perf"></label>
+  <button id="bClear">🧹 Sab Objects Hatao</button>
+  <button id="bSave">📸 Photo Save Karo</button>
+  <div style="opacity:.6;font-size:11px;line-height:1.6">
+   🤏 pinch = design spawn<br>👉 point 0.6s = select<br>🖐 palm(hold sel) = move<br>
+   🤏(hold sel) = size<br>✊(hold sel) = delete<br>🙂 nod = screen par PIN<br>
+   🙂 shake = hata do<br>✌️ = glass shard • 🤲🤲 = slab beam</div>
+ </aside>
+ <div id="start">
+  <h1>HOLO HAND FX</h1>
+  <p>AR Studio — multi-design holograms, head-gesture pin, offline-ready.
+     Camera permission allow karo. Haath 20–30 cm rakho.</p>
+  <button id="btn">🎥 CAMERA START KARO</button>
+  <div id="stat"></div>
+ </div>
+</div>
+<script src="./fx.js"></script>
+<script src="./core.js"></script>
+</body>
+</html>
