@@ -3,15 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>M-EdgeSpace- Maiya ka Studio</title>
+<title>M-EDGESPACE — Maiya ka 3D Studio</title>
 <link rel="stylesheet" href="./style.css">
 </head>
 <body>
 <div id="wrap">
  <video id="vid" playsinline autoplay muted></video>
+ <canvas id="cv3"></canvas>
  <canvas id="cv"></canvas>
  <div id="hud"></div>
  <button id="mbtn">⚙️</button>
+ <button id="vbtn">🎙</button>
+ <input id="cmd" placeholder="command likho… (Enter)">
  <div id="dock"></div>
  <div id="toast"></div>
  <aside id="menu">
@@ -25,20 +28,21 @@
   <button id="bClear">🧹 Sab Objects Hatao</button>
   <button id="bSave">📸 Photo Save Karo</button>
   <div style="opacity:.6;font-size:11px;line-height:1.6">
-   🤏 pinch = design spawn<br>👉 point 0.6s = select<br>🖐 palm(hold sel) = move<br>
-   🤏(hold sel) = size<br>✊(hold sel) = delete<br>🙂 nod = screen par PIN<br>
-   🙂 shake = hata do<br>✌️ = glass shard • 🤲🤲 = slab beam</div>
+   3D: 👉hold=select • 🖐=move • 🤏=size/spawn • 🤲🤲=rotate+zoom • ✊=deselect • 🙂nod=save • shake=delete<br>
+   Voice: "cube lao" "ghumao 45 degree" "bada karo" "laal karo" "hatao" "idea note karo ..."</div>
  </aside>
  <div id="start">
   <h1>M-EDGE<span style="color:#0ff">SPACE</span></h1>
-  <p style="opacity:.6;font-size:30px">Meri Maiya 🌸</p>
-  <p>AR Studio — multi-design holograms, head-gesture pin, offline-ready.
-     Camera permission allow karo. Haath 20–30 cm rakho.</p>
+  <p style="opacity:.6;font-size:11px">M = Maiya 🌸</p>
+  <p>3D Studio + AR + bolne wala agent. 🎙 button dabao, bolo: "cube lao".
+     Camera permission allow karo.</p>
   <button id="btn">🎥 CAMERA START KARO</button>
   <div id="stat"></div>
  </div>
 </div>
 <script src="./fx.js"></script>
 <script src="./core.js"></script>
+<script src="./voiceai.js"></script>
+<script type="module" src="./studio3d.js"></script>
 </body>
 </html>
