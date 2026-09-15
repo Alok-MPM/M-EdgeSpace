@@ -1,8 +1,8 @@
-/* voiceai.js v2 — add/morph/rotate/color sirf voice+text se (gesture se nahi) */
+/* voiceai.js v3 — POORA file: agent + retry + text box */
 (()=>{
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 const box=document.getElementById('cmd'),vbtn=document.getElementById('vbtn');
-let rec=null,on=false;
+let rec=null,on=false,retry=0;
 const say=t=>{try{const u=new SpeechSynthesisUtterance(t);u.lang='hi-IN';u.rate=1.05;speechSynthesis.speak(u)}catch(e){}};
 const IDEAS=()=>JSON.parse(localStorage.getItem('mes-ideas')||'[]');
 function parse(s){s=s.toLowerCase();
@@ -50,12 +50,15 @@ function run(txt){const c=parse(txt);
   zoom:'Camera set',sel:'Select kiya'}[c.op]||'Ho gaya';
  say(msg);FX.toast('🤖 '+msg)}
 if(SR){rec=new SR();rec.lang='hi-IN';rec.continuous=true;rec.interimResults=false;
- rec.onresult=e=>{const t=e.results[e.results.length-1][0].transcript;FX.toast('🎙 '+t);run(t)};
- rec.onerror=e=>{if(e.error!=='no-speech')FX.toast('🎙 err:'+e.error+(e.error==='not-allowed'?' — mic allow karo':''))};
+ rec.onresult=e=>{retry=0;const t=e.results[e.results.length-1][0].transcript;FX.toast('🎙 '+t);run(t)};
+ rec.onerror=e=>{if(e.error==='no-speech')return;
+  if(e.error==='network'&&retry<2){retry++;FX.toast('🎙 net err — dobara koshish...');
+   setTimeout(()=>{if(on)try{rec.start()}catch(x){}},1200);return}
+  retry=0;FX.toast('🎙 '+e.error+' — Chrome kholo ya box me type karo');box.focus()};
  rec.onend=()=>{if(on)try{rec.start()}catch(e){}}}
-vbtn.onclick=()=>{if(!rec){FX.toast('❌ browser voice nahi — Chrome/Edge use karo');return}
+vbtn.onclick=()=>{if(!rec){FX.toast('❌ browser voice nahi — Chrome use karo');return}
  on=!on;vbtn.style.background=on?'#0f6a':'#0009';
- if(on){rec.start();FX.toast('🎙 agent ON — bolo "cube lao"');say('Haan bhai, bolo')}
+ if(on){try{rec.start()}catch(e){}FX.toast('🎙 agent ON — bolo "cube lao"');say('Haan bhai, bolo')}
  else{rec.stop();FX.toast('🔇 agent OFF')}};
 box.addEventListener('keydown',e=>{if(e.key==='Enter'&&box.value.trim()){FX.toast('⌨ '+box.value);run(box.value);box.value=''}});
 window.VAI={run,say};
