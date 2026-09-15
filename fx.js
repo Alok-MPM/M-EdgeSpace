@@ -6,6 +6,7 @@ const DESIGNS=['AUTO','GLASS','HOLO','STATIC','NEON','PORTAL','SPARK','SLAB'];
 const S={opt:{skeleton:true,glitch:true,holo:false,spin:true,perf:false,head:true},
  objs:[],sel:null,design:'AUTO',grab:null};
 let oid=0,smooth=[],prevPinch=[false,false],pendSel=null,pendT=0,toastT=0,vidEl=null,noisePat=null,liveAuto=[];
+let lastH=[],lastG=[],lastHead=null;
 const D=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const cent=p=>({x:p.reduce((s,q)=>s+q.x,0)/p.length,y:p.reduce((s,q)=>s+q.y,0)/p.length});
 function poly(p){ctx.beginPath();p.forEach((q,i)=>i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y));ctx.closePath()}
@@ -117,6 +118,7 @@ const palm=p=>cent([p[0],p[5],p[9],p[13],p[17]]);
 function renderFrame(H,G,t,headE){
  ctx.clearRect(0,0,cv.width,cv.height);
  liveAuto=[];
+ lastH=H;lastG=G;lastHead=headE;
  const hasPeace=G.includes('PEACE');
  if(H.length===2&&!hasPeace&&(S.design==='AUTO'||S.design==='SLAB'||S.design==='STATIC')){
   const q=[H[0][8],H[1][8],H[1][4],H[0][4]];
@@ -173,5 +175,6 @@ function renderFrame(H,G,t,headE){
  if(t>toastT)toastEl.classList.remove('on');
  return{obj:S.objs.length,sel:S.sel}}
 return{S,DESIGNS,gesture,headEvt,smoothHands,renderFrame,toast,
- setVid:v=>{vidEl=v},get cv(){return cv}};
+ setVid:v=>{vidEl=v},get cv(){return cv},
+ getHands:()=>({H:lastH,G:lastG}),getHead:()=>lastHead};
 })();
