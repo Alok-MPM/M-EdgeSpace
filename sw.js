@@ -1,9 +1,16 @@
-const C='holo-v1';
-self.addEventListener('install',e=>e.waitUntil(
- caches.open(C).then(c=>c.addAll(['./','./index.html','./style.css','./fx.js','./core.js','./sw.js']))));
-self.addEventListener('activate',e=>e.waitUntil(clients.claim()));
-self.addEventListener('fetch',e=>{const r=e.request;
- if(r.method!=='GET'||!r.url.startsWith('http'))return;
- e.respondWith(caches.match(r).then(h=>h||fetch(r).then(res=>{
-  if(res.ok){const cl=res.clone();caches.open(C).then(c=>c.put(r,cl))}
-  return res}).catch(()=>caches.match('./index.html'))))});
+const C='holo-v3';
+self.addEventListener('install',e=>{self.skipWaiting();
+ e.waitUntil(caches.open(C).then(c=>c.addAll(['./','./index.html','./style.css','./fx.js','./core.js','./sw.js'])))});
+self.addEventListener('activate',e=>e.waitUntil((async()=>{
+ for(const k of await caches.keys())if(k!==C)await caches.delete(k);
+ await clients.claim()})()));
+self.addEventListener('fetch',e=>{const r=e.request;if(r.method!=='GET')return;
+ const url=new URL(r.url);
+ if(url.origin===location.origin){
+  e.respondWith(fetch(r).then(res=>{const cl=res.clone();
+   caches.open(C).then(c=>c.put(r,cl));return res})
+   .catch(()=>caches.match(r).then(h=>h||caches.match('./index.html'))));
+ }else{
+  e.respondWith(caches.match(r).then(h=>h||fetch(r).then(res=>{
+   const cl=res.clone();caches.open(C).then(c=>c.put(r,cl));return res})));
+ }});
