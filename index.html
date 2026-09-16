@@ -84,7 +84,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%}
   <button id="bClear">🧹 Sab 3D Objects Hatao</button>
   <button id="bSave">📸 Photo Save Karo</button>
   <div style="opacity:.6;font-size:11px;line-height:1.6">
-   Voice/chips/chat (local-ai): "cube lao" "bottle banao" "cube 1 ko ghumao 45" "bottle_cap hatao" "naam dikhao" "sab saaf"<br>
+   Voice/chips/chat (local-ai): "cube lao" "cube laao" "bottle banao" "cube 1 ko ghumao 45" "bottle_cap hatao" "naam dikhao" "sab saaf"<br>
    Gestures: 👉hold=select • 👉👉=morph • 🖐=move • 🤏grab=ghuma+size • 🤲🤲=stretch • ✊hold=delete</div>
  </aside>
  <div id="ppanel" style="display:none">
@@ -103,6 +103,9 @@ canvas{position:absolute;inset:0;width:100%;height:100%}
 <script>
 setTimeout(()=>{const miss=[];if(!window.APP1_OK)miss.push('app1.js');if(!window.APP2_OK)miss.push('app2.js');if(!window.S3D_OK)miss.push('studio3d.js');
  if(miss.length){const d=document.getElementById('stat');if(d)d.textContent='❌ load nahi hua: '+miss.join(', ')+' — reload karo'}},6000);
+</script>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
 </script>
 <script src="./app1.js"></script>
 <script src="./mes.js"></script>
