@@ -1,4 +1,4 @@
-/* mes.js v1.1 — make intent pehle, 'laao' synonym added */
+/* mes.js v1.2 — visible errors + silent-fail catch */
 (()=>{
 const COLORS={laal:'#ff3355',red:'#ff3355',neela:'#33aaff',blue:'#33aaff',hara:'#33ff88',green:'#33ff88',
  pila:'#ffee33',yellow:'#ffee33',narangi:'#ff8833',baingani:'#aa44ff',safed:'#ffffff',kala:'#222222'};
@@ -40,10 +40,11 @@ const INTENTS=[
  {id:'move',syn:['le jao','move','shift','upar','neeche','left','right','aage','piche','rakho']},
  {id:'rotate',syn:['ghumao','rotate','turn']},
  {id:'select',syn:['select','chuno','pakdo']}];
-function exec(id,a,tg){const S3=api3();if(!S3)return{ok:false,ask:'3D engine load nahi hua — ek baar reload karo sir'};
+function exec(id,a,tg){const S3=api3();
+ if(!S3){FX.toast('❌ 3D engine load nahi hua — reload karo');return{ok:false,ask:'3D engine load nahi hua — reload karo sir'}}
  const name=tg&&tg.kind==='obj'?tg.n:(tg&&tg.root)||undefined;
  const part=tg&&tg.kind==='part'?tg.n:null;
- const P=(op,ex)=>S3.exec(Object.assign({op,name},ex||{}));
+ const P=(op,ex)=>{try{return S3.exec(Object.assign({op,name},ex||{}))}catch(e){FX.toast('❌ 3D error: '+e.message);console.error('SCENE3D.exec fail:',e);return 0}};
  switch(id){
   case'labels':labelMode(true);return{ok:true,msg:'Labels on sir'};
   case'labeloff':labelMode(false);return{ok:true,msg:'Labels off sir'};
@@ -70,7 +71,9 @@ function exec(id,a,tg){const S3=api3();if(!S3)return{ok:false,ask:'3D engine loa
   case'make':{if(!a.type)return{ok:false,ask:'Kya banana hai sir — cube, sphere, bottle?'};
    const morph=name||S3.selName;
    if(morph){P('morph',{type:a.type,name});return{ok:true,msg:morph+' → '+a.type+' sir'}}
-   P('add',{type:a.type});return{ok:true,msg:(S3.lastName||a.type)+' taiyaar sir'}};
+   const res=P('add',{type:a.type});
+   if(!res){FX.toast('❌ cube add fail — console dekho');return{ok:false,ask:'Cube add fail hua sir — reload karo'}}
+   return{ok:true,msg:(S3.lastName||a.type)+' taiyaar sir'}};
  }
  return{ok:false,unknown:true}}
 function route(text){const t=(text||'').toLowerCase();
