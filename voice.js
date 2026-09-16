@@ -1,4 +1,4 @@
-/* voice.js v2 — browser STT + offline whisper-tiny fallback (Edge-proof) */
+/* voice.js v2.1 — visible errors + manual test + simpler whisper */
 (()=>{
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 const vbtn=document.getElementById('vbtn'),sel=document.getElementById('voiceSel');
@@ -18,15 +18,14 @@ loadVoices();speechSynthesis.onvoiceschanged=loadVoices;
 sel.onchange=()=>{voiceURI=sel.value;localStorage.setItem('mes-voice',voiceURI);say('Ye awaaz hai sir')};
 function say(t){try{const u=new SpeechSynthesisUtterance(t);
  const v=speechSynthesis.getVoices().find(v=>v.voiceURI===voiceURI);if(v)u.voice=v;
- u.lang=v?v.lang:'hi-IN';u.pitch=.95;u.rate=1.0;speechSynthesis.speak(u)}catch(e){}}
+ u.lang=v?v.lang:'hi-IN';u.pitch=.95;u.rate=1.0;speechSynthesis.speak(u)}catch(e){FX.toast('❌ TTS fail: '+e.message)}}
 window.MES.say=say;
 async function loadWhisper(){if(whisper||whLoading)return;whLoading=true;
- try{FX.toast('🧠 offline voice model load ho raha hai (pehli baar ~10MB)...');
+ try{FX.toast('🧠 whisper-tiny load ho raha hai (~10MB, pehli baar)...');
   const T=await import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2');
   whisper=await T.pipeline('automatic-speech-recognition','Xenova/whisper-tiny',{quantized:true});
-  FX.toast('🧠 offline voice READY — boliye');startChunks();
- }catch(e){FX.toast('❌ whisper load fail: '+(e.message||''))}
- whLoading=false}
+  FX.toast('🧠 whisper READY — ab boliye');whLoading=false;startChunks();
+ }catch(e){FX.toast('❌ whisper load FAIL: '+(e.message||e));whLoading=false;sttDead=true}}
 async function startChunks(){if(!on||!whisper)return;
  try{const st=await navigator.mediaDevices.getUserMedia({audio:true});
   mediaRec=new MediaRecorder(st);const chunks=[];
@@ -40,16 +39,18 @@ async function startChunks(){if(!on||!whisper)return;
     if(au.sampleRate!==16000){const off=new OfflineAudioContext(1,Math.ceil(ch.length*16000/au.sampleRate),16000);
      const src=off.createBufferSource();src.buffer=au;src.connect(off.destination);src.start();
      au=await off.startRendering();ch=au.getChannelData(0)}
+    FX.toast('🧠 transcribing...');
     const out=await whisper(ch,{language:'english',task:'transcribe'});
     const t=((out&&out.text)||'').trim();
     if(t&&t.length>2){FX.toast('🧠 '+t);const unk=handle(t,'voice');
      if(unk)say('Samajha nahi sir, dobara boliye?')}
-   }catch(e){}
-   if(on)setTimeout(startChunks,250)};
+    else FX.toast('🧠 kuch nahi suna');
+   }catch(e){FX.toast('❌ whisper transcribe fail: '+e.message)}
+   if(on)setTimeout(startChunks,3000)};
   mediaRec.start();setTimeout(()=>{if(mediaRec&&mediaRec.state==='recording')mediaRec.stop()},4000);
- }catch(e){}}
+ }catch(e){FX.toast('❌ mic record fail: '+e.message)}}
 function markDead(){if(sttDead)return;sttDead=true;
- FX.toast(' browser STT mara hai — offline whisper chalu kar raha hoon');loadWhisper()}
+ FX.toast('🎙 browser STT mara hai — offline whisper try kar raha hoon');loadWhisper()}
 async function meterOn(){try{micStream=await navigator.mediaDevices.getUserMedia({audio:true});
  actx=new(window.AudioContext||window.webkitAudioContext)();
  const src=actx.createMediaStreamSource(micStream);analyser=actx.createAnalyser();analyser.fftSize=256;src.connect(analyser);
@@ -61,7 +62,7 @@ async function meterOn(){try{micStream=await navigator.mediaDevices.getUserMedia
   if(lv>10)loud+=1/60;else loud=Math.max(0,loud-.2);
   if(on&&loud>2&&performance.now()-lastRes>3000&&!warned){warned=true;
    FX.toast('🎙 mic sun raha hai par browser text nahi bana raha');markDead()}
- };tickM()}catch(e){FX.toast('❌ mic access nahi mila')}}
+ };tickM()}catch(e){FX.toast('❌ mic access nahi mila: '+e.message)}}
 function meterOff(){cancelAnimationFrame(mRaf);if(micStream)micStream.getTracks().forEach(t=>t.stop());
  micStream=null;loud=0;const m=document.getElementById('meter');if(m)m.style.width='0%'}
 function handle(text,src){const r=window.MES.route(text);
@@ -84,10 +85,11 @@ if(SR){rec=new SR();rec.lang=LANGS[0];rec.continuous=true;rec.interimResults=fal
  rec.onend=()=>{if(on&&!sttDead)try{rec.start()}catch(e){}}}
 vbtn.onclick=()=>{if(!rec&&!sttDead){markDead()}
  on=!on;vbtn.style.background=on?'#0f6a':'#0009';
- if(on){if(!sttDead){try{rec.start()}catch(e){}}
+ if(on){if(!sttDead){try{rec.start()}catch(e){FX.toast('❌ rec.start fail: '+e.message)}}
   else{if(whisper)startChunks();else loadWhisper()}
   meterOn();window.MES.ui.toast('🎙 MIC ON — boliye');say('Haan sir, boliye')}
  else{if(rec)try{rec.stop()}catch(e){}
   if(mediaRec&&mediaRec.state==='recording')mediaRec.stop();
   meterOff();window.MES.ui.toast('🔇 MIC OFF');say('Theek hai sir')}};
+window.testVoice=()=>{if(sttDead&&whisper)startChunks();else markDead()};
 })();
