@@ -94,3 +94,4 @@ function loop(){requestAnimationFrame(loop);renderer.render(scene,cam);
  if(hd==='SHAKE'&&sel){scene.remove(sel);objs=objs.filter(o=>o!==sel);select(null);save();FX.toast('🗑 shake-delete')}
  if(helper)helper.update();prevG=g0;lastPalm=H[0]?palm(H[0]):null}
 loop();
+window.S3D_OK=true;
