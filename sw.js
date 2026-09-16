@@ -1,6 +1,6 @@
-const C='holo-v9';
+const C='holo-v10';
 self.addEventListener('install',e=>{self.skipWaiting();
- e.waitUntil(caches.open(C).then(c=>c.addAll(['./','./index.html','./app1.js','./app2.js','./studio3d.js','./sw.js'])))});
+ e.waitUntil(caches.open(C).then(c=>c.addAll(['./','./index.html','./app1.js','./mes.js','./voice.js','./app2.js','./studio3d.js','./sw.js'])))});
 self.addEventListener('activate',e=>e.waitUntil((async()=>{
  for(const k of await caches.keys())if(k!==C)await caches.delete(k);
  await clients.claim()})()));
