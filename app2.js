@@ -1,4 +1,4 @@
-/* app2.js — voice agent + chips + meter + projects panel */
+/* app2.js v3 — Llama agent (voice+chat) + chips local + meter + projects */
 (()=>{
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 const box=document.getElementById('cmd'),vbtn=document.getElementById('vbtn');
@@ -49,7 +49,8 @@ function parse(s){s=s.toLowerCase();
   localStorage.setItem('mes-ideas',JSON.stringify(a));return{op:'idea'}}
  if(/(kitne idea)/.test(s))return{op:'ideas'};
  if(/(madad|help)/.test(s))return{op:'help'};return null}
-function run(txt){const c=parse(txt);
+function execCmds(cs){(cs||[]).slice(0,8).forEach(c=>window.SCENE3D.exec(c))}
+function runLocal(txt){const c=parse(txt);
  if(!c){FX.toast('🤖 samjha nahi — "help" bolo');return}
  if(c.op==='copy'){window.PROJ.copy();return}
  if(c.op==='paste'){window.PROJ.paste();return}
@@ -62,20 +63,29 @@ function run(txt){const c=parse(txt);
   stretch:'Stretch ho gaya',del:'Hata diya',clear:'Sab 3D saaf',dup:'Copy bana di',color:'Rang badla',
   sel:'Select kiya'}[c.op]||'Ho gaya';
  say(msg);FX.toast('🤖 '+msg)}
+async function agentCall(text){FX.toast('🤖 soch raha hai...');
+ try{const r=await fetch('/api/agent',{method:'POST',headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({text})});
+  const out=await r.json();
+  if(out.error)throw new Error(out.error);
+  const reply=out.reply||'Ho gaya';
+  say(reply);FX.toast('🤖 '+reply);execCmds(out.cmds);
+ }catch(e){FX.toast('🤖 agent offline — local chala');runLocal(text)}}
 if(SR){rec=new SR();rec.lang=LANGS[0];rec.continuous=true;rec.interimResults=false;
- rec.onresult=e=>{retry=0;errs=0;const t=e.results[e.results.length-1][0].transcript;FX.toast('🎙 '+t);run(t)};
+ rec.onresult=e=>{retry=0;errs=0;const t=e.results[e.results.length-1][0].transcript;
+  FX.toast('🎙 '+t);agentCall(t)};
  rec.onerror=e=>{if(e.error==='no-speech')return;
   if(e.error==='network'&&retry<2){retry++;setTimeout(()=>{if(on)try{rec.start()}catch(x){}},1200);return}
   errs++;if(errs>4&&li<LANGS.length-1){li++;rec.lang=LANGS[li];errs=0;FX.toast('🌐 '+rec.lang);return}
-  FX.toast('🎙 '+e.error+' — chips/text use karo')};
+  FX.toast('🎙 '+e.error+' — voice service mara hai: Chrome kholo ya box me likho (agent dono sunta hai)')};
  rec.onend=()=>{if(on)try{rec.start()}catch(e){}}}
-vbtn.onclick=()=>{if(!rec){FX.toast('❌ browser voice nahi — chips/text use karo');return}
+vbtn.onclick=()=>{if(!rec){FX.toast('❌ browser voice nahi — box/chips use karo');return}
  on=!on;vbtn.style.background=on?'#0f6a':'#0009';
- if(on){try{rec.start()}catch(e){}meterOn();FX.toast('🎙 agent ON — bolo "cube lao"');say('Haan bhai, bolo')}
+ if(on){try{rec.start()}catch(e){}meterOn();FX.toast('🎙 agent ON — bolo kuch bhi, Llama samjhega');say('Haan bhai, bolo')}
  else{rec.stop();meterOff();FX.toast('🔇 agent OFF')}};
-document.querySelectorAll('#chips button').forEach(b=>b.onclick=()=>{FX.toast('⚡ '+b.dataset.c);run(b.dataset.c)});
-box.addEventListener('keydown',e=>{if(e.key==='Enter'&&box.value.trim()){FX.toast('⌨ '+box.value);run(box.value);box.value=''}});
-window.VAI={run,say};
+document.querySelectorAll('#chips button').forEach(b=>b.onclick=()=>{FX.toast('⚡ '+b.dataset.c);runLocal(b.dataset.c)});
+box.addEventListener('keydown',e=>{if(e.key==='Enter'&&box.value.trim()){FX.toast('⌨ '+box.value);agentCall(box.value);box.value=''}});
+window.VAI={run:runLocal,agent:agentCall,say};
 })();
 (()=>{
 const LS='mes-projects';const $=s=>document.querySelector(s);
