@@ -30,12 +30,13 @@ canvas{position:absolute;inset:0;width:100%;height:100%}
 #menu input{width:20px;height:20px;accent-color:#0ff}
 #menu button{border:1px solid #0ff6;background:#0ff2;color:#aff;font:700 13px Consolas;
  border-radius:10px;padding:9px;cursor:pointer}
-#home{position:absolute;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;
- justify-content:center;gap:12px;background:radial-gradient(circle at 50% 40%,#112233 0%,#05060a 75%);
- color:#fff;text-align:center;padding:20px;overflow:auto}
-#home h1{font-size:38px;letter-spacing:6px;background:linear-gradient(90deg,#0ff,#f0f,#0ff);
- -webkit-background-clip:text;background-clip:text;color:transparent}
-#homeGrid{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;max-width:640px}
+#ppanel{position:absolute;inset:0;z-index:9;background:#000c;backdrop-filter:blur(6px);
+ display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px;color:#cff}
+#pGrid{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:700px;max-height:52vh;overflow:auto}
+#npName{background:#000a;border:1px solid #0ff5;color:#aff;font:13px Consolas,monospace;border-radius:10px;
+ padding:9px;outline:none;width:180px}
+#ppanel .row button{border:1px solid #0ff6;background:#0ff2;color:#aff;font:700 13px Consolas;
+ border-radius:10px;padding:9px 14px;cursor:pointer}
 .card{background:#0ff1;border:1px solid #0ff4;border-radius:12px;padding:10px 14px;min-width:150px;
  color:#dff;font:12px Consolas,monospace;display:flex;flex-direction:column;gap:6px}
 .card b{color:#aff;font-size:14px}
@@ -44,8 +45,11 @@ canvas{position:absolute;inset:0;width:100%;height:100%}
 .card button{border:1px solid #0ff5;background:#0ff2;color:#aff;border-radius:8px;padding:4px 8px;
  font:700 11px Consolas;cursor:pointer}
 .row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
-#newBtn,#impBtn{border:1px solid #0ff6;background:#0ff2;color:#aff;font:700 13px Consolas;
- border-radius:10px;padding:10px 16px;cursor:pointer}
-#camBtn{border:none;border-radius:12px;padding:14px 34px;font:700 16px Consolas,monospace;
+#home{position:absolute;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;
+ justify-content:center;gap:14px;background:radial-gradient(circle at 50% 40%,#112233 0%,#05060a 75%);
+ color:#fff;text-align:center;padding:20px;overflow:auto}
+#home h1{font-size:40px;letter-spacing:6px;background:linear-gradient(90deg,#0ff,#f0f,#0ff);
+ -webkit-background-clip:text;background-clip:text;color:transparent}
+#camBtn{border:none;border-radius:12px;padding:15px 38px;font:700 17px Consolas,monospace;
  color:#001;background:linear-gradient(90deg,#0ff,#7f5);box-shadow:0 0 25px #0ff8;cursor:pointer}
 #stat{color:#f66;font:12px Consolas,monospace;min-height:16px}
