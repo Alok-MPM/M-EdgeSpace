@@ -1,4 +1,4 @@
-/* studio3d.js v4.1 — mapped imports (importmap) */
+/* studio3d.js v5 — clean gesture contract: ek gesture = ek kaam */
 import*as THREE from'three';
 import{GLTFLoader}from'three/addons/loaders/GLTFLoader.js';
 const cv3=document.getElementById('cv3');
@@ -8,6 +8,7 @@ const scene=new THREE.Scene(),cam=new THREE.PerspectiveCamera(55,1,.1,100);cam.p
 scene.add(new THREE.AmbientLight(0xffffff,.75));
 const dl=new THREE.DirectionalLight(0x88eeff,.9);dl.position.set(2,3,4);scene.add(dl);
 let objs=[],sel=null,oid=0,helper=null,lastName='',selName='',counts={};
+let two0=null,pin0=null,prevTip=null;
 const ray=new THREE.Raycaster(),ndc=new THREE.Vector2(),PL=new THREE.Plane(new THREE.Vector3(0,0,1),0);
 const V=new THREE.Vector3();
 const resize=()=>{renderer.setSize(innerWidth,innerHeight,false);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix()};
@@ -48,7 +49,7 @@ function addRaw(o){const h=o.h!=null?o.h:Math.random()*360;
  scene.add(m);objs.push(m);return m}
 function loadArr(arr){objs.slice().forEach(m=>scene.remove(m));objs=[];select(null);counts={};
  (arr||[]).forEach(o=>addRaw(o));save()}
-function select(m){sel=m;selName=m?m.userData.mesName:'';
+function select(m){sel=m;selName=m?m.userData.mesName:'';two0=null;pin0=null;prevTip=null;
  if(helper){scene.remove(helper);helper=null}
  if(m){helper=new THREE.BoxHelper(m,0xffff00);scene.add(helper)}}
 const rootOf=o=>{while(o&&(!o.userData||!o.userData.mesName))o=o.parent;return o};
@@ -58,6 +59,7 @@ const planePt=(pt,z)=>{ndc.set(pt.x/innerWidth*2-1,-(pt.y/innerHeight*2-1));ray.
  PL.constant=-z;const v=new THREE.Vector3();return ray.ray.intersectPlane(PL,v)?v:null};
 const palm=p=>({x:(p[0].x+p[5].x+p[9].x+p[13].x+p[17].x)/5,y:(p[0].y+p[5].y+p[9].y+p[13].y+p[17].y)/5});
 const d2=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+const mid2=(a,b)=>({x:(a.x+b.x)/2,y:(a.y+b.y)/2});
 function morph(m,t){if(!m||m.userData.t===t)return m;
  if(m.children&&m.children.length){return m}
  const g=['rect','sheet','tall'].includes(t)?'cube':t;
@@ -99,38 +101,46 @@ function entities(){return objs.map(o=>({name:o.userData.mesName,obj:o,
 function project(p){V.copy(p).project(cam);return{x:(V.x*.5+.5)*innerWidth,y:(-V.y*.5+.5)*innerHeight,z:V.z}}
 window.SCENE3D={exec,execPart,removePart,addObj,morph,select,dump,load:loadArr,importGLTF,entities,project,
  selected:()=>sel?dumpOne(sel):null,get count(){return objs.length},get lastName(){return lastName},get selName(){return selName}};
-let holdT=0,fistT=0,prevG='',tapN=0,tapT=0,tapStart=0,grab=null,stretch=null;
+let holdT=0,fistT=0,prevG='',tapN=0,tapT=0,tapStart=0;
 const GST={};const stable=(i,g)=>{const s=GST[i]||(GST[i]={g:'',n:0});s.g===g?s.n++:(s.g=g,s.n=1);return s.n>=3};
 let last=performance.now();
 function loop(){requestAnimationFrame(loop);renderer.render(scene,cam);
  if(window.MES&&MES.S.labelOn)MES.tickLabels(project);
  const now=performance.now(),dt=now-last;last=now;
  const{H,G}=FX.getHands();const g0=G[0]||'';
- if(!H||!H.length){holdT=0;fistT=0;grab=null;stretch=null;prevG='';return}
+ if(prevG!==g0&&sel)save();
+ if(!H||!H.length){holdT=0;fistT=0;two0=null;pin0=null;prevTip=null;prevG='';return}
  if(g0==='POINT'&&stable(0,'POINT')){holdT+=dt;
-  if(holdT>600){const hit=pick(H[0][8]);if(hit&&hit!==sel){select(hit);
-   FX.toast('🎯 '+hit.userData.mesName+' select')}}
- }else holdT=0;
+  if(holdT>600&&!sel){const hit=pick(H[0][8]);if(hit){select(hit);FX.toast('🎯 '+hit.userData.mesName+' select — hold+drag=rotate')}}
+ }else if(g0!=='POINT')holdT=0;
  if(g0==='POINT'&&prevG!=='POINT')tapStart=now;
  if(g0!=='POINT'&&prevG==='POINT'){const dur=now-tapStart;
   if(dur<350){const hit=pick(H[0][8]);
    if(now-tapT<900)tapN++;else tapN=1;tapT=now;
-   if(tapN===2&&sel&&hit===sel){exec({op:'morph',type:['cube','rect','sheet','sphere'][(['cube','rect','sheet','sphere'].indexOf(sel.userData.t)+1)%4]});
+   if(tapN===2&&sel&&hit===sel){morph(sel,['cube','rect','sheet','sphere'][(['cube','rect','sheet','sphere'].indexOf(sel.userData.t)+1)%4]);
     FX.toast('🔁 morph: '+sel.userData.t);tapN=0}}else tapN=0}
- if(sel&&G.includes('PALM')&&!stretch){const hi=G.indexOf('PALM');
-  const pl=planePt(palm(H[hi]),sel.position.z);if(pl)sel.position.lerp(pl,.35)}
- if(sel&&G.includes('PINCH')){const hi=G.indexOf('PINCH'),mid=H[hi][8],pd=d2(H[hi][4],H[hi][8]);
-  if(pick(mid)===sel||grab){grab=grab||{pd,p:palm(H[hi])};const p=palm(H[hi]);
-   sel.rotation.y+=(p.x-grab.p.x)*.006;sel.rotation.x+=(p.y-grab.p.y)*.006;
-   if(grab.pd)sel.scale.multiplyScalar(THREE.MathUtils.clamp(pd/grab.pd,.92,1.08));
-   grab={pd,p}}
- }else if(grab){save();grab=null}
- if(sel&&H.length===2&&G[0]==='PALM'&&G[1]==='PALM'){const a=palm(H[0]),b=palm(H[1]);
-  const h=Math.max(40,Math.abs(a.x-b.x)),v=Math.max(30,Math.abs(a.y-b.y));
-  stretch=stretch||{h,v,sx:sel.scale.x,sy:sel.scale.y};
-  sel.scale.x=THREE.MathUtils.clamp(stretch.sx*(h/stretch.h),.02,8);
-  sel.scale.y=THREE.MathUtils.clamp(stretch.sy*(v/stretch.v),.02,8);
- }else if(stretch){save();stretch=null}
+ if(sel){
+  const two=H.length===2&&G[0]==='PALM'&&G[1]==='PALM';
+  if(two){const a=palm(H[0]),b=palm(H[1]);
+   const ang=Math.atan2(b.y-a.y,b.x-a.x),dist=d2(a,b),mid=mid2(a,b);
+   if(!two0)two0={ang,d0:dist,sc:sel.scale.x,rot:sel.rotation.z};
+   sel.rotation.z=two0.rot+(ang-two0.ang);
+   sel.scale.setScalar(THREE.MathUtils.clamp(two0.sc*(dist/two0.d0),.05,8));
+   const pl=planePt(mid,sel.position.z);if(pl)sel.position.lerp(pl,.3);
+  }else{two0=null;
+   if(g0==='PINCH'){const pd=d2(H[0][4],H[0][8]);
+    if(!pin0)pin0={pd,sc:sel.scale.x};
+    sel.scale.setScalar(THREE.MathUtils.clamp(pin0.sc*(pd/pin0.pd),.05,8));
+   }else pin0=null;
+   if(g0==='PALM'){const pl=planePt(palm(H[0]),sel.position.z);if(pl)sel.position.lerp(pl,.35)}
+   if(g0==='POINT'&&holdT>600){const tip=H[0][8];
+    if(prevTip){const dx=tip.x-prevTip.x,dy=tip.y-prevTip.y;
+     if(Math.abs(dx)>2)sel.rotation.y+=dx*.005;
+     if(Math.abs(dy)>2)sel.rotation.x+=dy*.005}
+    prevTip={x:tip.x,y:tip.y};
+   }else if(g0!=='POINT')prevTip=null;
+  }
+ }else{two0=null;pin0=null;prevTip=null}
  if(g0==='FIST'&&sel){fistT+=dt;
   if(fistT>800){scene.remove(sel);objs=objs.filter(o=>o!==sel);select(null);save();FX.toast('🗑 delete');fistT=0}
  }else if(g0==='FIST')fistT+=dt;
