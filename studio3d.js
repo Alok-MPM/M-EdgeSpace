@@ -1,6 +1,6 @@
-/* studio3d.js v4 — 3D engine + naming + parts + GLTF + label projection */
-import*as THREE from'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-import{GLTFLoader}from'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
+/* studio3d.js v4.1 — mapped imports (importmap) */
+import*as THREE from'three';
+import{GLTFLoader}from'three/addons/loaders/GLTFLoader.js';
 const cv3=document.getElementById('cv3');
 const renderer=new THREE.WebGLRenderer({canvas:cv3,alpha:true,antialias:false,powerPreference:'low-power'});
 renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
@@ -37,8 +37,6 @@ const dumpOne=m=>({t:m.userData.t,g:m.userData.g,p:m.position.toArray(),
  r:[m.rotation.x,m.rotation.y,m.rotation.z],s:m.scale.toArray(),h:m.userData.hue,
  parts:m.children?m.children.filter(c=>c.name).map(c=>({name:c.name,p:c.position.toArray(),s:c.scale.toArray()})):[]});
 const dump=()=>objs.map(dumpOne);
-function loadArr(arr){objs.slice().forEach(m=>scene.remove(m));objs=[];select(null);counts={};
- (arr||[]).forEach(o=>{const m=addRaw(o)});save()}
 function addRaw(o){const h=o.h!=null?o.h:Math.random()*360;
  let m;if(o.parts&&o.parts.length){m=bottleGroup(h);
   o.parts.forEach(p=>{const c=m.children.find(c=>c.name===p.name);
@@ -48,6 +46,8 @@ function addRaw(o){const h=o.h!=null?o.h:Math.random()*360;
  counts[o.t||o.g||'cube']=(counts[o.t||o.g||'cube']||0)+1;
  m.userData={id:++oid,hue:h,t:o.t||o.g||'cube',g:o.g||'cube',mesName:o.nm||nameFor(o.t||o.g||'cube')};
  scene.add(m);objs.push(m);return m}
+function loadArr(arr){objs.slice().forEach(m=>scene.remove(m));objs=[];select(null);counts={};
+ (arr||[]).forEach(o=>addRaw(o));save()}
 function select(m){sel=m;selName=m?m.userData.mesName:'';
  if(helper){scene.remove(helper);helper=null}
  if(m){helper=new THREE.BoxHelper(m,0xffff00);scene.add(helper)}}
