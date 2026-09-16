@@ -1,4 +1,4 @@
-/* app2.js v4 — chat panel + Llama agent + voice + chips + projects */
+/* app2.js v4.1 — chat + agent + bottle local fix */
 (()=>{
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 const box=document.getElementById('cmd'),vbtn=document.getElementById('vbtn');
@@ -13,8 +13,8 @@ function log(t,cls){const d=document.createElement('div');d.className='msg '+(cl
 chat.addEventListener('click',e=>{e.stopPropagation();chat.classList.add('open');box.focus()});
 document.addEventListener('click',e=>{if(!chat.contains(e.target))chat.classList.remove('open')});
 async function meterOn(){try{micStream=await navigator.mediaDevices.getUserMedia({audio:true});
- actx=new(window.AudioContext||window.webkitAudioContext()),
- src=actx.createMediaStreamSource(micStream),analyser=actx.createAnalyser();analyser.fftSize=256;src.connect(analyser);
+ actx=new(window.AudioContext||window.webkitAudioContext)();
+ const src=actx.createMediaStreamSource(micStream);analyser=actx.createAnalyser();analyser.fftSize=256;src.connect(analyser);
  const buf=new Uint8Array(analyser.frequencyBinCount);
  const tickM=()=>{mRaf=requestAnimationFrame(tickM);analyser.getByteFrequencyData(buf);
   let s=0;for(let i=0;i<buf.length;i++)s+=buf[i];
@@ -23,18 +23,20 @@ function meterOff(){cancelAnimationFrame(mRaf);if(micStream)micStream.getTracks(
  micStream=null;const m=document.getElementById('meter');if(m)m.style.width='0%'}
 function parse(s){s=s.toLowerCase();
  const dg=(s.match(/(\d+)\s*(degree|digri)/)||[])[1],D=dg?+dg:45;
+ const ADD=/(lao|add|naya|banao|banado)/;
  if(/(copy karo)/.test(s))return{op:'copy'};
  if(/(paste karo)/.test(s))return{op:'paste'};
  if(/(export karo|download karo)/.test(s))return{op:'export'};
+ if(/(bottle|botal)/.test(s)&&ADD.test(s))return{op:'bottle'};
  if(/(sphere|gola|ball)/.test(s)&&/(banao|banado)/.test(s))return{op:'morph',type:'sphere'};
  if(/(rectangle|rect)/.test(s)&&/(banao|banado)/.test(s))return{op:'morph',type:'rect'};
  if(/(sheet|chaadar)/.test(s)&&/(banao|banado)/.test(s))return{op:'morph',type:'sheet'};
  if(/(tall|khada)/.test(s)&&/(banao|banado)/.test(s))return{op:'morph',type:'tall'};
- if(/(cube|box|dabba)/.test(s)&&/(banao|wapas)/.test(s))return{op:'morph',type:'cube'};
- if(/(cube|box|dabba)/.test(s)&&/(lao|add|naya)/.test(s))return{op:'add',type:'cube'};
- if(/(sphere|gola|ball)/.test(s)&&/(lao|add|naya)/.test(s))return{op:'add',type:'sphere'};
- if(/(cylinder|belan|pipe|bottle)/.test(s)&&/(lao|add|naya)/.test(s))return{op:'add',type:'cyl'};
- if(/(torus|ring|challa)/.test(s)&&/(lao|add|naya)/.test(s))return{op:'add',type:'torus'};
+ if(/(cube|box|dabba)/.test(s)&&/(banao|banado|wapas)/.test(s))return{op:'morph',type:'cube'};
+ if(/(cube|box|dabba)/.test(s)&&ADD.test(s))return{op:'add',type:'cube'};
+ if(/(sphere|gola|ball)/.test(s)&&ADD.test(s))return{op:'add',type:'sphere'};
+ if(/(cylinder|belan|pipe)/.test(s)&&ADD.test(s))return{op:'add',type:'cyl'};
+ if(/(torus|ring|challa)/.test(s)&&ADD.test(s))return{op:'add',type:'torus'};
  if(/(flip|palat)/.test(s))return{op:'rot',axis:'x',deg:180};
  if(/(ghumao|rotate|turn)/.test(s))return{op:'rot',deg:/left|baye|neeche/.test(s)?-D:D,
   axis:/upar|neeche/.test(s)?'x':/tilt/.test(s)?'z':'y'};
@@ -58,6 +60,9 @@ function parse(s){s=s.toLowerCase();
 function execCmds(cs){(cs||[]).slice(0,8).forEach(c=>window.SCENE3D.exec(c))}
 function runLocal(txt){const c=parse(txt);
  if(!c){log('🤖 samjha nahi — "help" likho','a');FX.toast('🤖 samjha nahi');return}
+ if(c.op==='bottle'){window.SCENE3D.exec({op:'add',type:'cyl'});
+  window.SCENE3D.exec({op:'stretch',axis:'y',f:1.8});window.SCENE3D.exec({op:'scale',f:.7});
+  say('Bottle taiyaar');log('🤖 Bottle taiyaar (local)','a');FX.toast('🤖 Bottle taiyaar');return}
  if(c.op==='copy'){window.PROJ.copy();log('🤖 model copy hua','a');return}
  if(c.op==='paste'){window.PROJ.paste();log('🤖 paste ho gaya','a');return}
  if(c.op==='export'){window.PROJ.export();log('🤖 export ho gaya','a');return}
@@ -81,7 +86,7 @@ async function agentCall(text){chat.classList.add('open');log(text,'u');
   const n=(out.cmds||[]).length;
   if(n){execCmds(out.cmds);log('🛠 '+n+' command chale','s')}
  }catch(e){clearTimeout(to);
-  pend.textContent='🤖 agent offline ('+(e.message||'')+') — local chala';
+  pend.textContent='🤖 '+(e.message||'agent offline')+' — local chala';
   runLocal(text)}}
 if(SR){rec=new SR();rec.lang=LANGS[0];rec.continuous=true;rec.interimResults=false;
  rec.onresult=e=>{retry=0;errs=0;const t=e.results[e.results.length-1][0].transcript;
