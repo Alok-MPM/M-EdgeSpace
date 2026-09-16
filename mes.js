@@ -1,4 +1,4 @@
-/* mes.js — M-EdgeSpace State facade: naming registry, label mode, intent router (local-ai) */
+/* mes.js v1.1 — make intent pehle, 'laao' synonym added */
 (()=>{
 const COLORS={laal:'#ff3355',red:'#ff3355',neela:'#33aaff',blue:'#33aaff',hara:'#33ff88',green:'#33ff88',
  pila:'#ffee33',yellow:'#ffee33',narangi:'#ff8833',baingani:'#aa44ff',safed:'#ffffff',kala:'#222222'};
@@ -32,15 +32,15 @@ const INTENTS=[
  {id:'labeloff',syn:['label band','naam chhupao','label off']},
  {id:'clear',syn:['sab saaf','sab hatao','clear all']},
  {id:'copy',syn:['copy karo']},{id:'paste',syn:['paste karo']},
+ {id:'make',syn:['banao','banado','lao','laao','add','naya','morph','badlo']},
  {id:'delete',syn:['hatao','delete','mita']},
  {id:'color',syn:['rang','laal','neela','hara','pila','color']},
  {id:'stretch',syn:['lamba','patla','mota','side badhao','stretch']},
  {id:'scale',syn:['bada','chhota','size','scale']},
- {id:'move',syn:['le jao','laao','move','shift','upar','neeche','left','right','aage','piche','rakho']},
+ {id:'move',syn:['le jao','move','shift','upar','neeche','left','right','aage','piche','rakho']},
  {id:'rotate',syn:['ghumao','rotate','turn']},
- {id:'select',syn:['select','chuno','pakdo']},
- {id:'make',syn:['banao','banado','lao','add','naya','morph','badlo']}];
-function exec(id,a,tg){const S3=api3();if(!S3)return{ok:false,ask:'3D load ho raha hai sir'};
+ {id:'select',syn:['select','chuno','pakdo']}];
+function exec(id,a,tg){const S3=api3();if(!S3)return{ok:false,ask:'3D engine load nahi hua — ek baar reload karo sir'};
  const name=tg&&tg.kind==='obj'?tg.n:(tg&&tg.root)||undefined;
  const part=tg&&tg.kind==='part'?tg.n:null;
  const P=(op,ex)=>S3.exec(Object.assign({op,name},ex||{}));
@@ -83,12 +83,11 @@ function labelMode(on){S.labelOn=on;const L=document.getElementById('labels');
 function tickLabels(project){if(!S.labelOn)return;const L=document.getElementById('labels');if(!L)return;
  const seen={};
  for(const e of entities()){const items=[{n:e.name,p:e.obj.position}];
-  for(const pt of e.parts)items.push({n:pt.name,p:pt.obj.getWorldPosition(new THREE.Vector3())});
+  for(const pt of e.parts){const w=pt.obj.getWorldPosition(new THREE.Vector3());items.push({n:pt.name,p:w})}
   for(const it of items){seen[it.n]=1;let d=labels[it.n];
    if(!d){d=document.createElement('div');d.className='lbl';d.textContent=it.n;L.appendChild(d);labels[it.n]=d}
    const s=project(it.p);
    if(s.z>1){d.style.display='none'}else{d.style.display='block';d.style.left=s.x+'px';d.style.top=s.y+'px'}}}
  for(const k in labels)if(!seen[k]){labels[k].remove();delete labels[k]}}
-window.MES={S,route,exec,labelMode,tickLabels,findTarget,entities,
- say:()=>{},ui:{}};
+window.MES={S,route,exec,labelMode,tickLabels,findTarget,entities,say:()=>{},ui:{}};
 })();
