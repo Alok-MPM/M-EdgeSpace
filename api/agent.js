@@ -1,4 +1,4 @@
-/* api/agent.js — Vercel server function: OpenRouter Llama (key server pe safe) */
+/* api/agent.js — Vercel function: OpenRouter Llama + health check */
 const SYS=`Tum M-EdgeSpace 3D studio ka andar ka agent ho. User Hinglish bolta hai.
 Hamesha sirf JSON do: {"reply":"<chhota Hinglish jawab>","cmds":[...]}
 cmds (max 8) sirf is list se:
@@ -10,13 +10,18 @@ cmds (max 8) sirf is list se:
 {"op":"move","x":-3..3,"y":-2..2,"z":-3..3}
 {"op":"color","color":"#rrggbb"}
 {"op":"del"} {"op":"clear"} {"op":"dup"} {"op":"sel"} {"op":"zoom","d":-2..2}
-cmds selected/last object pe lagti hain. Naya design banane ke liye add+move+morph+color ka sequence do.
+cmds selected/last object pe lagti hain.
+Design examples: "water bottle banao" → [{"op":"add","type":"cyl"},{"op":"stretch","axis":"y","f":1.8},{"op":"scale","f":0.7}]
+"cube ke is side ko badhao" → [{"op":"stretch","axis":"x","f":1.3}]
+"ghuma ke upar rakho" → [{"op":"rot","axis":"y","deg":45},{"op":"move","y":1}]
+Naya design = add+move+morph+color+stretch ka sequence khud socho.
 Design ki baat na ho to cmds:[] aur friendly Hinglish reply do.`;
 const MODELS=['meta-llama/llama-3.2-3b-instruct:free','meta-llama/llama-3.3-70b-instruct:free'];
 export default async function handler(req,res){
+ if(req.method==='GET')return res.status(200).json({ok:true,key:!!process.env.OPENROUTER_API_KEY,models:MODELS});
  if(req.method!=='POST')return res.status(405).json({error:'POST only'});
  const key=process.env.OPENROUTER_API_KEY;
- if(!key)return res.status(500).json({error:'OPENROUTER_API_KEY set nahi hai (Vercel Settings)'});
+ if(!key)return res.status(500).json({error:'OPENROUTER_API_KEY set nahi hai (Vercel Settings → Redeploy)'});
  const {text}=req.body||{};
  for(const model of MODELS){
   try{
@@ -33,5 +38,5 @@ export default async function handler(req,res){
    return res.status(200).json(out);
   }catch(e){}
  }
- return res.status(500).json({error:'agent unreachable'});
+ return res.status(500).json({error:'agent unreachable (model rate-limit?)'});
 }
