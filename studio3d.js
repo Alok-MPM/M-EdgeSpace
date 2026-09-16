@@ -1,4 +1,4 @@
-/* studio3d.js v2 : 3D-native gestures (sirf manipulate) + voice-add + morph */
+/* studio3d.js v3 : 3D engine + gestures + project autosave */
 import*as THREE from'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 const cv3=document.getElementById('cv3');
 const renderer=new THREE.WebGLRenderer({canvas:cv3,alpha:true,antialias:false,powerPreference:'low-power'});
@@ -12,10 +12,16 @@ const resize=()=>{renderer.setSize(innerWidth,innerHeight,false);cam.aspect=inne
 addEventListener('resize',resize);resize();
 const mat=h=>new THREE.MeshStandardMaterial({color:new THREE.Color(`hsl(${h},80%,55%)`),metalness:.3,roughness:.4,transparent:true,opacity:.92});
 const geo=t=>t==='sphere'?new THREE.SphereGeometry(.6,20,14):t==='cyl'?new THREE.CylinderGeometry(.45,.45,1.1,18):t==='torus'?new THREE.TorusGeometry(.55,.2,12,24):new THREE.BoxGeometry(1,1,1);
-const save=()=>localStorage.setItem('mes-scene',JSON.stringify(objs.map(m=>({t:m.userData.t,g:m.userData.g,p:m.position.toArray(),r:[m.rotation.x,m.rotation.y,m.rotation.z],s:m.scale.toArray(),h:m.userData.hue}))));
+const save=()=>{if(window.PROJ)window.PROJ.touch()};
+const dumpOne=m=>({t:m.userData.t,g:m.userData.g,p:m.position.toArray(),r:[m.rotation.x,m.rotation.y,m.rotation.z],s:m.scale.toArray(),h:m.userData.hue});
+const dump=()=>objs.map(dumpOne);
+function addRaw(o){const m=new THREE.Mesh(geo(o.g||'cube'),mat(o.h!=null?o.h:Math.random()*360));
+ m.position.fromArray(o.p||[0,0,0]);m.rotation.set(...(o.r||[0,0,0]));m.scale.fromArray(o.s||[1,1,1]);
+ m.userData={id:++oid,hue:o.h!=null?o.h:0,t:o.t||o.g||'cube',g:o.g||'cube'};scene.add(m);objs.push(m);return m}
 function addObj(t='cube',pos=null,hue=Math.random()*360){
- const m=new THREE.Mesh(geo(t),mat(hue));m.position.copy(pos||new THREE.Vector3((Math.random()-.5)*3,(Math.random()-.5)*1.5,0));
- m.userData={id:++oid,hue,t,g:t};scene.add(m);objs.push(m);save();return m}
+ const m=addRaw({g:t,p:pos?pos.toArray():[(Math.random()-.5)*3,(Math.random()-.5)*1.5,0],h:hue});save();return m}
+function loadArr(arr){objs.slice().forEach(m=>scene.remove(m));objs=[];select(null);
+ (arr||[]).forEach(o=>addRaw(o));save()}
 function morph(m,t){if(!m||m.userData.t===t)return m;
  const g=['rect','sheet','tall'].includes(t)?'cube':t;
  if(m.userData.g!==g){const s=m.scale.clone(),r=m.rotation.clone(),p=m.position.clone(),h=m.userData.hue,id=m.userData.id,wasSel=sel===m;
@@ -47,7 +53,7 @@ function exec(c){const S=sel;switch(c.op){
  case'sel':select(objs[objs.length-1]||null);return 1;
  case'zoom':cam.position.z=THREE.MathUtils.clamp(cam.position.z+(c.d||-1),2,12);return 1;
  case'list':return objs.length}return 0}
-window.SCENE3D={exec,addObj,morph,select,get count(){return objs.length}};
+window.SCENE3D={exec,addObj,morph,select,dump,load:loadArr,selected:()=>sel?dumpOne(sel):null,get count(){return objs.length}};
 let holdT=0,fistT=0,prevG='',tapN=0,tapT=0,tapStart=0,grab=null,stretch=null,lastPalm=null;
 const GST={};const stable=(i,g)=>{const s=GST[i]||(GST[i]={g:'',n:0});s.g===g?s.n++:(s.g=g,s.n=1);return s.n>=3};
 let last=performance.now();
@@ -57,7 +63,7 @@ function loop(){requestAnimationFrame(loop);renderer.render(scene,cam);
  if(!H||!H.length){holdT=0;fistT=0;grab=null;stretch=null;prevG='';return}
  if(g0==='POINT'&&stable(0,'POINT')){holdT+=dt;
   if(holdT>600){const hit=pick(H[0][8]);if(hit&&hit!==sel){select(hit);
-   FX.toast('🎯 select — 🖐move • 🤏grab=ghuma+size • 🤲🤲stretch • 👉👉morph • ✊hold=delete')}}
+   FX.toast('🎯 select — 🖐move • 🤏grab=ghuma+size • 🤲stretch • 👉👉morph • ✊hold=delete')}}
  }else holdT=0;
  if(g0==='POINT'&&prevG!=='POINT')tapStart=now;
  if(g0!=='POINT'&&prevG==='POINT'){const dur=now-tapStart;
@@ -87,7 +93,4 @@ function loop(){requestAnimationFrame(loop);renderer.render(scene,cam);
  if(hd==='NOD'&&sel){save();FX.toast('💾 save/pin')}
  if(hd==='SHAKE'&&sel){scene.remove(sel);objs=objs.filter(o=>o!==sel);select(null);save();FX.toast('🗑 shake-delete')}
  if(helper)helper.update();prevG=g0;lastPalm=H[0]?palm(H[0]):null}
-try{const d=JSON.parse(localStorage.getItem('mes-scene')||'[]');
- d.forEach(o=>{const m=addObj(o.g||'cube',new THREE.Vector3(...o.p),o.h);
-  m.rotation.set(...o.r);m.scale.set(...o.s);m.userData.t=o.t||o.g})}catch(e){}
 loop();
