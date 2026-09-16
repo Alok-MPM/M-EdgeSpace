@@ -1,4 +1,4 @@
-/* studio3d.js v5 — clean gesture contract: ek gesture = ek kaam */
+/* studio3d.js v6 — two-palm removed + error catching */
 import*as THREE from'three';
 import{GLTFLoader}from'three/addons/loaders/GLTFLoader.js';
 const cv3=document.getElementById('cv3');
@@ -8,7 +8,7 @@ const scene=new THREE.Scene(),cam=new THREE.PerspectiveCamera(55,1,.1,100);cam.p
 scene.add(new THREE.AmbientLight(0xffffff,.75));
 const dl=new THREE.DirectionalLight(0x88eeff,.9);dl.position.set(2,3,4);scene.add(dl);
 let objs=[],sel=null,oid=0,helper=null,lastName='',selName='',counts={};
-let two0=null,pin0=null,prevTip=null;
+let pin0=null,prevTip=null;
 const ray=new THREE.Raycaster(),ndc=new THREE.Vector2(),PL=new THREE.Plane(new THREE.Vector3(0,0,1),0);
 const V=new THREE.Vector3();
 const resize=()=>{renderer.setSize(innerWidth,innerHeight,false);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix()};
@@ -22,11 +22,12 @@ function bottleGroup(h){const g=new THREE.Group();
  const neck=new THREE.Mesh(new THREE.CylinderGeometry(.15,.2,.3,12),mat(h));neck.position.y=.7;neck.name='bottle_neck';
  const cap=new THREE.Mesh(new THREE.CylinderGeometry(.17,.17,.15,12),mat((h+120)%360));cap.position.y=.92;cap.name='bottle_cap';
  g.add(body,neck,cap);return g}
-function addObj(type,pos){const h=Math.random()*360;
+function addObj(type,pos){try{const h=Math.random()*360;
  const o=type==='bottle'?bottleGroup(h):new THREE.Mesh(geo(type),mat(h));
  if(pos)o.position.copy(pos);else o.position.set((Math.random()-.5)*3,(Math.random()-.5)*1.5,0);
  o.userData={id:++oid,hue:h,t:type,g:type,mesName:nameFor(type)};
- lastName=o.userData.mesName;scene.add(o);objs.push(o);save();return o}
+ lastName=o.userData.mesName;scene.add(o);objs.push(o);save();return o
+}catch(e){console.error('addObj fail:',e);FX.toast('❌ addObj fail: '+e.message);return null}}
 function importGLTF(file,cb){const url=URL.createObjectURL(file);
  new GLTFLoader().load(url,g=>{const root=g.scene;let i=0;
   root.traverse(n=>{if(n.isMesh){if(!n.name)n.name='part_'+(++i);
@@ -49,7 +50,7 @@ function addRaw(o){const h=o.h!=null?o.h:Math.random()*360;
  scene.add(m);objs.push(m);return m}
 function loadArr(arr){objs.slice().forEach(m=>scene.remove(m));objs=[];select(null);counts={};
  (arr||[]).forEach(o=>addRaw(o));save()}
-function select(m){sel=m;selName=m?m.userData.mesName:'';two0=null;pin0=null;prevTip=null;
+function select(m){sel=m;selName=m?m.userData.mesName:'';pin0=null;prevTip=null;
  if(helper){scene.remove(helper);helper=null}
  if(m){helper=new THREE.BoxHelper(m,0xffff00);scene.add(helper)}}
 const rootOf=o=>{while(o&&(!o.userData||!o.userData.mesName))o=o.parent;return o};
@@ -59,7 +60,6 @@ const planePt=(pt,z)=>{ndc.set(pt.x/innerWidth*2-1,-(pt.y/innerHeight*2-1));ray.
  PL.constant=-z;const v=new THREE.Vector3();return ray.ray.intersectPlane(PL,v)?v:null};
 const palm=p=>({x:(p[0].x+p[5].x+p[9].x+p[13].x+p[17].x)/5,y:(p[0].y+p[5].y+p[9].y+p[13].y+p[17].y)/5});
 const d2=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
-const mid2=(a,b)=>({x:(a.x+b.x)/2,y:(a.y+b.y)/2});
 function morph(m,t){if(!m||m.userData.t===t)return m;
  if(m.children&&m.children.length){return m}
  const g=['rect','sheet','tall'].includes(t)?'cube':t;
@@ -80,9 +80,9 @@ function execPart(op,rootName,partName,a){const r=objs.find(o=>o.userData.mesNam
  if(op==='del'){r.remove(c);save();return 1}
  save();return 1}
 function removePart(rootName,partName){return execPart('del',rootName,partName,{})}
-function exec(c){if(c.name){const m=objs.find(o=>o.userData.mesName===c.name);if(m)select(m)}
+function exec(c){try{if(c.name){const m=objs.find(o=>o.userData.mesName===c.name);if(m)select(m)}
  const S=sel;switch(c.op){
- case'add':{const m=addObj(c.type||'cube');select(m);return 1}
+ case'add':{const m=addObj(c.type||'cube');if(m)select(m);return m?1:0}
  case'morph':return(morph(S||objs[objs.length-1],c.type)||{userData:{}}).userData?1:0;
  case'rot':if(S){S.rotation[c.axis||'y']+=(c.deg||45)*Math.PI/180;save()}return 1;
  case'scale':if(S){S.scale.multiplyScalar(THREE.MathUtils.clamp(c.f||1.2,.05,6));save()}return 1;
@@ -95,7 +95,8 @@ function exec(c){if(c.name){const m=objs.find(o=>o.userData.mesName===c.name);if
   c2.userData={...S.userData,id:++oid,mesName:nameFor(S.userData.t)};scene.add(c2);objs.push(c2);save()}return 1;
  case'sel':select(objs[objs.length-1]||null);return 1;
  case'zoom':cam.position.z=THREE.MathUtils.clamp(cam.position.z+(c.d||-1),2,12);return 1;
- case'list':return objs.length}return 0}
+ case'list':return objs.length}return 0
+}catch(e){console.error('SCENE3D.exec fail:',e);FX.toast('❌ exec fail: '+e.message);return 0}}
 function entities(){return objs.map(o=>({name:o.userData.mesName,obj:o,
  parts:o.children.filter(c=>c.name).map(c=>({name:c.name,obj:c}))}))}
 function project(p){V.copy(p).project(cam);return{x:(V.x*.5+.5)*innerWidth,y:(-V.y*.5+.5)*innerHeight,z:V.z}}
@@ -109,7 +110,7 @@ function loop(){requestAnimationFrame(loop);renderer.render(scene,cam);
  const now=performance.now(),dt=now-last;last=now;
  const{H,G}=FX.getHands();const g0=G[0]||'';
  if(prevG!==g0&&sel)save();
- if(!H||!H.length){holdT=0;fistT=0;two0=null;pin0=null;prevTip=null;prevG='';return}
+ if(!H||!H.length){holdT=0;fistT=0;pin0=null;prevTip=null;prevG='';return}
  if(g0==='POINT'&&stable(0,'POINT')){holdT+=dt;
   if(holdT>600&&!sel){const hit=pick(H[0][8]);if(hit){select(hit);FX.toast('🎯 '+hit.userData.mesName+' select — hold+drag=rotate')}}
  }else if(g0!=='POINT')holdT=0;
@@ -120,27 +121,18 @@ function loop(){requestAnimationFrame(loop);renderer.render(scene,cam);
    if(tapN===2&&sel&&hit===sel){morph(sel,['cube','rect','sheet','sphere'][(['cube','rect','sheet','sphere'].indexOf(sel.userData.t)+1)%4]);
     FX.toast('🔁 morph: '+sel.userData.t);tapN=0}}else tapN=0}
  if(sel){
-  const two=H.length===2&&G[0]==='PALM'&&G[1]==='PALM';
-  if(two){const a=palm(H[0]),b=palm(H[1]);
-   const ang=Math.atan2(b.y-a.y,b.x-a.x),dist=d2(a,b),mid=mid2(a,b);
-   if(!two0)two0={ang,d0:dist,sc:sel.scale.x,rot:sel.rotation.z};
-   sel.rotation.z=two0.rot+(ang-two0.ang);
-   sel.scale.setScalar(THREE.MathUtils.clamp(two0.sc*(dist/two0.d0),.05,8));
-   const pl=planePt(mid,sel.position.z);if(pl)sel.position.lerp(pl,.3);
-  }else{two0=null;
-   if(g0==='PINCH'){const pd=d2(H[0][4],H[0][8]);
-    if(!pin0)pin0={pd,sc:sel.scale.x};
-    sel.scale.setScalar(THREE.MathUtils.clamp(pin0.sc*(pd/pin0.pd),.05,8));
-   }else pin0=null;
-   if(g0==='PALM'){const pl=planePt(palm(H[0]),sel.position.z);if(pl)sel.position.lerp(pl,.35)}
-   if(g0==='POINT'&&holdT>600){const tip=H[0][8];
-    if(prevTip){const dx=tip.x-prevTip.x,dy=tip.y-prevTip.y;
-     if(Math.abs(dx)>2)sel.rotation.y+=dx*.005;
-     if(Math.abs(dy)>2)sel.rotation.x+=dy*.005}
-    prevTip={x:tip.x,y:tip.y};
-   }else if(g0!=='POINT')prevTip=null;
-  }
- }else{two0=null;pin0=null;prevTip=null}
+  if(g0==='PINCH'){const pd=d2(H[0][4],H[0][8]);
+   if(!pin0)pin0={pd,sc:sel.scale.x};
+   sel.scale.setScalar(THREE.MathUtils.clamp(pin0.sc*(pd/pin0.pd),.05,8));
+  }else pin0=null;
+  if(g0==='PALM'){const pl=planePt(palm(H[0]),sel.position.z);if(pl)sel.position.lerp(pl,.35)}
+  if(g0==='POINT'&&holdT>600){const tip=H[0][8];
+   if(prevTip){const dx=tip.x-prevTip.x,dy=tip.y-prevTip.y;
+    if(Math.abs(dx)>2)sel.rotation.y+=dx*.005;
+    if(Math.abs(dy)>2)sel.rotation.x+=dy*.005}
+   prevTip={x:tip.x,y:tip.y};
+  }else if(g0!=='POINT')prevTip=null;
+ }else{pin0=null;prevTip=null}
  if(g0==='FIST'&&sel){fistT+=dt;
   if(fistT>800){scene.remove(sel);objs=objs.filter(o=>o!==sel);select(null);save();FX.toast('🗑 delete');fistT=0}
  }else if(g0==='FIST')fistT+=dt;
