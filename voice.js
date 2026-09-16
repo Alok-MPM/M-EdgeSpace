@@ -1,8 +1,9 @@
-/* voice.js — Step 1: toggle mic, premium voice filter, cinematic TTS, confirm/ask */
+/* voice.js v1.1 — mic-level watchdog: sun raha par text nahi → toast */
 (()=>{
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 const vbtn=document.getElementById('vbtn'),sel=document.getElementById('voiceSel');
 let rec=null,on=false,retry=0,errs=0,li=0,actx=null,analyser=null,micStream=null,mRaf=0;
+let loud=0,lastRes=0,warned=false;
 const LANGS=['hi-IN','en-IN','en-US'];
 let voiceURI=localStorage.getItem('mes-voice')||null;
 function loadVoices(){const vs=speechSynthesis.getVoices();if(!vs.length)return;
@@ -24,9 +25,14 @@ async function meterOn(){try{micStream=await navigator.mediaDevices.getUserMedia
  const buf=new Uint8Array(analyser.frequencyBinCount);
  const tickM=()=>{mRaf=requestAnimationFrame(tickM);analyser.getByteFrequencyData(buf);
   let s=0;for(let i=0;i<buf.length;i++)s+=buf[i];
-  const m=document.getElementById('meter');if(m)m.style.width=Math.min(100,s/buf.length*4)+'%'};tickM()}catch(e){}}
+  const lv=Math.min(100,s/buf.length*4);
+  const m=document.getElementById('meter');if(m)m.style.width=lv+'%';
+  if(lv>12)loud+=1/60;else loud=0;
+  if(on&&loud>4&&performance.now()-lastRes>4000&&!warned){warned=true;
+   FX.toast('🎙 mic sun raha hai par browser text nahi bana raha — Chrome kholo ya chat box me likho')}
+ };tickM()}catch(e){}}
 function meterOff(){cancelAnimationFrame(mRaf);if(micStream)micStream.getTracks().forEach(t=>t.stop());
- micStream=null;const m=document.getElementById('meter');if(m)m.style.width='0%'}
+ micStream=null;loud=0;const m=document.getElementById('meter');if(m)m.style.width='0%'}
 function handle(text,src){const r=window.MES.route(text);
  if(src==='chat')window.MES.ui.log(text,'u');else window.MES.ui.log('🎙 '+text,'u');
  if(r.ok){say(r.msg);window.MES.ui.log('⚡ '+r.msg,'a');window.MES.ui.toast('⚡ '+r.msg)}
@@ -35,13 +41,14 @@ function handle(text,src){const r=window.MES.route(text);
  return null}
 window.MES.handle=handle;
 if(SR){rec=new SR();rec.lang=LANGS[0];rec.continuous=true;rec.interimResults=false;
- rec.onresult=e=>{retry=0;errs=0;const t=e.results[e.results.length-1][0].transcript;
+ rec.onresult=e=>{retry=0;errs=0;lastRes=performance.now();warned=false;
+  const t=e.results[e.results.length-1][0].transcript;
   const unk=handle(t,'voice');
   if(unk){window.MES.ui.log('🎙 '+t+' (samjha nahi)','s');say('Samajha nahi sir, dobara boliye?')}};
  rec.onerror=e=>{if(e.error==='no-speech')return;
   if(e.error==='network'&&retry<2){retry++;setTimeout(()=>{if(on)try{rec.start()}catch(x){}},1200);return}
-  errs++;if(errs>4&&li<LANGS.length-1){li++;rec.lang=LANGS[li];errs=0;window.MES.ui.toast('🌐 '+rec.lang);return}
-  window.MES.ui.toast('🎙 '+e.error+' — Chrome best hai voice ke liye')};
+  errs++;if(errs>4&&li<LANGS.length-1){li++;rec.lang=LANGS[li];errs=0;FX.toast('🌐 '+rec.lang);return}
+  FX.toast('🎙 '+e.error+' — Chrome best hai voice ke liye')};
  rec.onend=()=>{if(on)try{rec.start()}catch(e){}}}
 vbtn.onclick=()=>{if(!rec){window.MES.ui.toast('❌ browser voice nahi — chat box use karo');return}
  on=!on;vbtn.style.background=on?'#0f6a':'#0009';
