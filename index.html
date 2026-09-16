@@ -11,18 +11,10 @@
  <video id="vid" playsinline autoplay muted></video>
  <canvas id="cv3"></canvas>
  <canvas id="cv"></canvas>
- <div id="topbar"><span id="pname">📁 —</span><span id="saveDot">💾</span><button id="pbtn">📁</button></div>
  <div id="hud"></div>
  <button id="mbtn" onclick="var m=document.getElementById('menu');var o=m.style.display==='block';m.style.display=o?'none':'block';m.style.transform='none';m.style.opacity='1'">⚙️</button>
- <button id="vbtn">🎙<span id="meter"></span></button>
+ <button id="vbtn">🎙</button>
  <input id="cmd" placeholder="command likho… (Enter)">
- <div id="chips">
-  <button data-c="cube lao">🧊 cube</button><button data-c="sphere banao">⚪ sphere</button>
-  <button data-c="sheet banao">▭ sheet</button><button data-c="ghumao 45 degree">🔄 45°</button>
-  <button data-c="bada karo">➕ size</button><button data-c="laal karo">🎨 laal</button>
-  <button data-c="copy karo">📋 copy</button><button data-c="paste karo">📥 paste</button>
-  <button data-c="hatao">🗑</button><button data-c="sab saaf">🧹</button>
- </div>
  <div id="toast"></div>
  <aside id="menu" style="display:none">
   <b style="color:#0ff;font-size:15px">⚙️ OPTIONS</b>
@@ -33,23 +25,20 @@
   <button id="bClear">🧹 Sab 3D Objects Hatao</button>
   <button id="bSave">📸 Photo Save Karo</button>
   <div style="opacity:.6;font-size:11px;line-height:1.6">
-   👉hold=select • 👉👉=morph • 🖐=move • 🤏grab=ghuma+size • 🤲🤲=stretch • ✊hold=delete • ✊flash=deselect • nod=save • shake=delete<br>
-   Voice/chips/text: "cube lao" "sphere banao" "sheet banao" "ghumao 45 degree" "copy karo" "paste karo" "export karo" "idea note karo ..."</div>
+   Gestures (select ke baad): 👉hold=select • 👉👉=morph • 🖐=move • 🤏grab=ghuma+size • 🤲🤲=stretch • ✊hold=delete • ✊flash=deselect<br>
+   Voice/text: "cube lao" "sphere banao" "sheet banao" "ghumao 45 degree" "lamba karo" "laal karo" "hatao" "idea note karo ..."</div>
  </aside>
- <div id="home">
+ <div id="start">
   <h1>M-EDGE<span style="color:#0ff">SPACE</span></h1>
-  <p style="opacity:.6;font-size:20px">Meri Maiya 🌸 • 3D Studio • fresh start har baar</p>
-  <div id="homeGrid"></div>
-  <div class="row"><button id="newBtn">➕ Naya Project</button><button id="impBtn">📥 Import JSON</button></div>
-  <button id="camBtn">🎥 CAMERA START KARO</button>
+  <p style="opacity:.6;font-size:20px">Meri Maiya 🌸</p>
+  <p>3D Studio + bolne wala agent. 🎙 dabao, bolo: "cube lao". Camera allow karo.</p>
+  <button id="btn">🎥 CAMERA START KARO</button>
   <div id="stat"></div>
  </div>
- <div id="start" style="display:none"><button id="btn">cam</button></div>
 </div>
 <script src="./fx.js"></script>
 <script src="./core.js"></script>
 <script src="./voiceai.js"></script>
-<script src="./projects.js"></script>
 <script type="module" src="./studio3d.js"></script>
 </body>
 </html>
