@@ -1,12 +1,14 @@
-/* studio3d.js v6 — two-palm removed + error catching */
+/* studio3d.js v7 — focus-mode depth grid + eco rendering */
 import*as THREE from'three';
 import{GLTFLoader}from'three/addons/loaders/GLTFLoader.js';
 const cv3=document.getElementById('cv3');
 const renderer=new THREE.WebGLRenderer({canvas:cv3,alpha:true,antialias:false,powerPreference:'low-power'});
-renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
+renderer.setPixelRatio(1);
 const scene=new THREE.Scene(),cam=new THREE.PerspectiveCamera(55,1,.1,100);cam.position.set(0,0,6);
 scene.add(new THREE.AmbientLight(0xffffff,.75));
 const dl=new THREE.DirectionalLight(0x88eeff,.9);dl.position.set(2,3,4);scene.add(dl);
+const grid=new THREE.GridHelper(24,48,0x0f3f3f,0x0a2525);
+grid.material.transparent=true;grid.material.opacity=.35;grid.position.y=-1.6;grid.visible=false;scene.add(grid);
 let objs=[],sel=null,oid=0,helper=null,lastName='',selName='',counts={};
 let pin0=null,prevTip=null;
 const ray=new THREE.Raycaster(),ndc=new THREE.Vector2(),PL=new THREE.Plane(new THREE.Vector3(0,0,1),0);
@@ -80,6 +82,7 @@ function execPart(op,rootName,partName,a){const r=objs.find(o=>o.userData.mesNam
  if(op==='del'){r.remove(c);save();return 1}
  save();return 1}
 function removePart(rootName,partName){return execPart('del',rootName,partName,{})}
+function setFocus(on){grid.visible=!!on}
 function exec(c){try{if(c.name){const m=objs.find(o=>o.userData.mesName===c.name);if(m)select(m)}
  const S=sel;switch(c.op){
  case'add':{const m=addObj(c.type||'cube');if(m)select(m);return m?1:0}
@@ -100,8 +103,9 @@ function exec(c){try{if(c.name){const m=objs.find(o=>o.userData.mesName===c.name
 function entities(){return objs.map(o=>({name:o.userData.mesName,obj:o,
  parts:o.children.filter(c=>c.name).map(c=>({name:c.name,obj:c}))}))}
 function project(p){V.copy(p).project(cam);return{x:(V.x*.5+.5)*innerWidth,y:(-V.y*.5+.5)*innerHeight,z:V.z}}
-window.SCENE3D={exec,execPart,removePart,addObj,morph,select,dump,load:loadArr,importGLTF,entities,project,
+window.SCENE3D={exec,execPart,removePart,addObj,morph,select,dump,load:loadArr,importGLTF,entities,project,setFocus,
  selected:()=>sel?dumpOne(sel):null,get count(){return objs.length},get lastName(){return lastName},get selName(){return selName}};
+if(window.MES&&MES.S.focus)grid.visible=true;
 let holdT=0,fistT=0,prevG='',tapN=0,tapT=0,tapStart=0;
 const GST={};const stable=(i,g)=>{const s=GST[i]||(GST[i]={g:'',n:0});s.g===g?s.n++:(s.g=g,s.n=1);return s.n>=3};
 let last=performance.now();
