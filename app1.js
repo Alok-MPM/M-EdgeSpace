@@ -1,8 +1,8 @@
-/* app1.js v7 — stable smoothed 3D hand data + skeleton only (3D hand = studio3d rig) */
+/* app1.js v8 — self-healing hand engine: retry + crash-recovery + visible status */
 const FX=(()=>{
 const cv=document.getElementById('cv'),ctx=cv.getContext('2d'),wrap=document.getElementById('wrap'),toastEl=document.getElementById('toast');
 const S={opt:{skeleton:true,holo:false,perf:false,head:true}};
-let smooth=[],smoothW=[],smoothD=[],hand3D=[null,null],toastT=0,vidEl=null,lastH=[],lastG=[],lastHead=null,lastW=null;
+let smooth=[],smoothW=[],smoothD=[],hand3D=[null,null],toastT=0,vidEl=null,lastH=[],lastG=[],lastHead=null;
 const D=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const CONN=[[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
 const FING=[[5,6,7,8],[9,10,11,12],[13,14,15,16],[17,18,19,20]];
@@ -11,7 +11,7 @@ function gesture(p){const f=FING.map(x=>D(p[x[3]],p[0])>D(p[x[1]],p[0])*1.12);co
  if(D(p[4],p[8])<D(p[0],p[9])*.5&&n<=1)return'PINCH';
  if(f[0]&&f[1]&&!f[2]&&!f[3])return'PEACE';
  if(n>=4)return'PALM';if(n===0)return'FIST';return'POINT'}
-function toast(m){toastEl.textContent=m;toastEl.classList.add('on');toastT=performance.now()+1800}
+function toast(m){toastEl.textContent=m;toastEl.classList.add('on');toastT=performance.now()+2200}
 const HP={h:[],cool:0};
 function headEvt(fl,t){if(!fl)return null;
  const le=fl[33],re=fl[263],no=fl[1],ch=fl[152],fo=fl[10];
@@ -32,7 +32,7 @@ function smoothHands(LM){if(!LM||LM.length!==smooth.length)smooth=[];
   const pts=raw.map((q,i)=>({x:smooth[hi][i].x+(q.x-smooth[hi][i].x)*.72,y:smooth[hi][i].y+(q.y-smooth[hi][i].y)*.72}));
   smooth[hi]=pts.map(q=>({...q}));return pts})}
 function setWorld(LW){if(!LW||LW.length!==smoothW.length)smoothW=[];
- (LW||[]).map((w,hi)=>{if(!smoothW[hi])smoothW[hi]=w.map(q=>({...q}));
+ (LW||[]).forEach((w,hi)=>{if(!smoothW[hi])smoothW[hi]=w.map(q=>({...q}));
   smoothW[hi]=w.map((q,i)=>({x:smoothW[hi][i].x+(q.x-smoothW[hi][i].x)*.7,
    y:smoothW[hi][i].y+(q.y-smoothW[hi][i].y)*.7,z:smoothW[hi][i].z+(q.z-smoothW[hi][i].z)*.7}))})}
 function inv3(m){const[a,b,c,d,e,f,g,h,i]=m;
@@ -73,6 +73,7 @@ function renderFrame(H,G,t,headE){ctx.clearRect(0,0,cv.width,cv.height);
     hand3D[hi]=p.map((q,i)=>({x:q.x,y:q.y,d:smoothD[hi][i]}))}else hand3D[hi]=null;
   }else hand3D[hi]=null;
   if(mode!=='hologram')skeleton(p)});
+ for(let i=lastH.length;i<2;i++)hand3D[i]=null;
  if(S.opt.holo){ctx.save();ctx.globalAlpha=.12;ctx.fillStyle='#0ff';
   for(let y=0;y<cv.height;y+=4)ctx.fillRect(0,y,cv.width,1);ctx.restore()}
  if(t>toastT)toastEl.classList.remove('on')}
@@ -84,24 +85,30 @@ return{S,gesture,headEvt,smoothHands,setWorld,renderFrame,toast,setVid:v=>{vidEl
 })();
 (()=>{
 const $=s=>document.querySelector(s);
-const vid=$('#vid'),home=$('#home'),stat=$('#stat');
+const vid=$('#vid'),home=$('#home'),stat=$('#stat'),hud=$('#hud');
 const TV='https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
 const MH='https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
 const MF='https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
 let HL=null,FL=null,flTried=false,lastH=null,lastW=null,lastF=null,fNew=false,eng='none',tick=0,lastHandT=0;
+let detErr='',detFail=0,fps=60;
 async function vision(){const v=await import(TV);return{v,fs:await v.FilesetResolver.forVisionTasks(TV+'/wasm')}}
 async function mkH(d){const{v,fs}=await vision();return v.HandLandmarker.createFromOptions(fs,{baseOptions:{modelAssetPath:MH,delegate:d},runningMode:'VIDEO',numHands:2})}
 async function mkF(d){const{v,fs}=await vision();return v.FaceLandmarker.createFromOptions(fs,{baseOptions:{modelAssetPath:MF,delegate:d},runningMode:'VIDEO',numFaces:1})}
+async function loadHL(){try{HL=await mkH('GPU');eng='GPU';detFail=0;detErr='';return true}
+ catch(e){try{HL=await mkH('CPU');eng='CPU';detFail=0;detErr='';return true}
+  catch(e2){detErr=(e2.message||'net/model?').slice(0,50);return false}}}
 const go=async()=>{try{
   stat.textContent='📷 camera...';
   const st=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false});
   vid.srcObject=st;await vid.play();FX.setVid(vid);
-  stat.textContent='🧠 hand model load...';
-  try{HL=await mkH('GPU');eng='GPU'}catch(e){HL=await mkH('CPU');eng='CPU'}
   home.style.display='none';
+  stat.textContent='🧠 hand model load...';
+  let ok=await loadHL(),tries=0;
+  while(!ok){tries++;FX.toast('🧠 model load fail #'+tries+' — 4s me retry ['+detErr+']');
+   await new Promise(r=>setTimeout(r,4000));ok=await loadHL()}
+  FX.toast('🧠 hand model ON ('+eng+') — TRUE-3D rig');
   if(window.PROJ)window.PROJ.startSession();
   if(window.MES&&MES.S.focus&&window.SCENE3D)SCENE3D.setFocus(true);
-  FX.toast('🎥 camera + TRUE-3D hand engine ON ('+eng+')');
   detectLoop();
  }catch(e){const m=e.name==='NotAllowedError'?'camera permission allow karo (site settings)':e.message;
   stat.textContent='❌ '+m;FX.toast('❌ '+m)}};
@@ -111,8 +118,12 @@ async function detectLoop(){while(true){
  const t=performance.now();
  const idle=t-lastHandT>10000;
  if(vid.readyState>=2&&HL&&!idle){
-  try{lastH=HL.detectForVideo(vid,t);lastW=lastH.worldLandmarks||null;
-   if(lastH.landmarks&&lastH.landmarks.length)lastHandT=t}catch(e){}
+  try{lastH=HL.detectForVideo(vid,t);lastW=lastH.worldLandmarks||null;detFail=0;
+   if(lastH.landmarks&&lastH.landmarks.length)lastHandT=t;
+  }catch(e){detFail++;detErr=(e.message||'').slice(0,50);
+   if(detFail>20){detFail=0;const nx=eng==='GPU'?'CPU':'GPU';
+    FX.toast('🧠 detect crash — engine '+eng+'→'+nx);
+    (async()=>{try{HL=await mkH(nx);eng=nx;detErr=''}catch(e2){HL=null;detErr=(e2.message||'').slice(0,50)}})()}}
   if(FX.S.opt.head){tick++;if(tick%8===0){try{
    if(!FL&&!flTried){flTried=true;try{FL=await mkF('GPU')}catch(e){try{FL=await mkF('CPU')}catch(e2){}}}
    if(FL){lastF=FL.detectForVideo(vid,t);fNew=true}}catch(e){}}}
@@ -137,8 +148,11 @@ let handSeen=false,wT=0;
  FX.renderFrame(H,G,t||0,headE);
  if(H.length)handSeen=true;
  wT+=16;if(wT>7000){wT=0;
-  if(!HL)FX.toast('🧠 hand model load nahi — net check / reload');
+  if(!HL)FX.toast('🧠 model load nahi hua — retry chal raha hai ['+detErr+']');
   else if(!handSeen)FX.toast('🖐 haath camera me dikhao (20-30 cm)')}
+ if(hud)hud.textContent='FPS '+(fps|0)+' • HANDS '+H.length+' • ENG '+eng+(detErr?' ❌'+detErr:' ✔');
  requestAnimationFrame(loop)})();
+let pt=performance.now();
+setInterval(()=>{const n=performance.now();fps=fps*.9+(1000/Math.max(1,n-pt))*0+.1*fps;pt=n},500);
 window.APP1_OK=true;
 })();
