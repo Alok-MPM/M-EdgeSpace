@@ -1,4 +1,4 @@
-/* app1.js v3 — hologram hand render + eco detection */
+/* app1.js v4 — wireframe mesh hologram hand (tubes + palm grid + forearm) */
 const FX=(()=>{
 const cv=document.getElementById('cv'),ctx=cv.getContext('2d'),wrap=document.getElementById('wrap'),toastEl=document.getElementById('toast');
 const S={opt:{skeleton:true,holo:false,perf:false,head:true}};
@@ -33,23 +33,60 @@ function smoothHands(LM){if(!LM||LM.length!==smooth.length)smooth=[];
 function skeleton(p){ctx.strokeStyle='rgba(0,255,238,.45)';ctx.lineWidth=1;ctx.beginPath();
  CONN.forEach(([a,b])=>{ctx.moveTo(p[a].x,p[a].y);ctx.lineTo(p[b].x,p[b].y)});ctx.stroke();
  ctx.fillStyle='#fff';p.forEach(q=>{ctx.beginPath();ctx.arc(q.x,q.y,2.5,0,7);ctx.fill()})}
-function holoHand(p,t){const fl=.7+.3*Math.sin(t/90+p[0].x%7);
+/* ---- wireframe helpers ---- */
+function ring(cx,cy,ang,r,sq){ctx.beginPath();ctx.ellipse(cx,cy,r,Math.max(1,r*sq),ang,0,7);ctx.stroke()}
+function tube(A,B,rA,rB,sq){sq=sq||.38;
+ const dx=B.x-A.x,dy=B.y-A.y,L=Math.hypot(dx,dy)||1,ux=dx/L,uy=dy/L,nx=-uy,ny=ux,ang=Math.atan2(ny,nx);
+ const M={x:(A.x+B.x)/2,y:(A.y+B.y)/2},rM=(rA+rB)/2;
+ ring(A.x,A.y,ang,rA,sq);ring(M.x,M.y,ang,rM,sq);ring(B.x,B.y,ang,rB,sq);
+ for(let k=0;k<8;k++){const th=k/8*2*Math.PI,ca=Math.cos(th),sa=Math.sin(th)*sq;
+  const pA={x:A.x+nx*rA*ca+ux*rA*sa,y:A.y+ny*rA*ca+uy*rA*sa};
+  const pM={x:M.x+nx*rM*ca+ux*rM*sa,y:M.y+ny*rM*ca+uy*rM*sa};
+  const pB={x:B.x+nx*rB*ca+ux*rB*sa,y:B.y+ny*rB*ca+uy*rB*sa};
+  ctx.beginPath();ctx.moveTo(pA.x,pA.y);ctx.lineTo(pM.x,pM.y);ctx.lineTo(pB.x,pB.y);ctx.stroke()}}
+function topAt(u,E){const n=E.length-1,f=u*n,i=Math.min(n-1,Math.floor(f)),w=f-i;
+ return{x:E[i].x+(E[i+1].x-E[i].x)*w,y:E[i].y+(E[i+1].y-E[i].y)*w}}
+function holoHand(p,t){
+ const L=D(p[0],p[9])||1,Wd=D(p[5],p[17])||1;
+ const fl=.72+.28*Math.sin(t/90+p[0].x%7);
  let ax=1e9,ay=1e9,bx=-1e9,by=-1e9;
  p.forEach(q=>{ax=Math.min(ax,q.x);ay=Math.min(ay,q.y);bx=Math.max(bx,q.x);by=Math.max(by,q.y)});
- ctx.save();ctx.globalAlpha=fl;ctx.shadowColor='#0af';ctx.shadowBlur=12;
- ctx.strokeStyle='rgba(140,225,255,.95)';ctx.lineWidth=1.4;ctx.fillStyle='rgba(0,140,255,.20)';
- ctx.beginPath();ctx.moveTo(p[0].x,p[0].y);[1,5,9,13,17].forEach(i=>ctx.lineTo(p[i].x,p[i].y));
- ctx.closePath();ctx.fill();ctx.stroke();
- [[0,1,2,3,4],[5,6,7,8],[9,10,11,12],[13,14,15,16],[17,18,19,20]].forEach(f=>{
-  for(let k=0;k<3;k++){const a=p[f[k]],b=p[f[k+1]];
-   const w1=Math.max(2,9-k*2.5),w2=Math.max(1.5,9-(k+1)*2.5);
-   const dx=b.x-a.x,dy=b.y-a.y,L=Math.hypot(dx,dy)||1,nx=-dy/L,ny=dx/L;
-   ctx.beginPath();ctx.moveTo(a.x+nx*w1,a.y+ny*w1);ctx.lineTo(b.x+nx*w2,b.y+ny*w2);
-   ctx.lineTo(b.x-nx*w2,b.y-ny*w2);ctx.lineTo(a.x-nx*w1,a.y-ny*w1);ctx.closePath();
-   ctx.fill();ctx.stroke();
-   if(k===3){ctx.beginPath();ctx.arc(b.x,b.y,w2,0,7);ctx.fill();ctx.stroke()}}});
- ctx.shadowBlur=0;ctx.globalAlpha=fl*.3;ctx.strokeStyle='#9ef';ctx.lineWidth=.6;
- for(let y=ay;y<by;y+=4){ctx.beginPath();ctx.moveTo(ax,y);ctx.lineTo(bx,y);ctx.stroke()}
+ ctx.save();ctx.globalAlpha=fl;ctx.lineWidth=1;
+ ctx.strokeStyle='rgba(160,228,255,.9)';ctx.shadowColor='#0af';ctx.shadowBlur=9;
+ /* wrist + forearm tube */
+ const dxw=(p[0].x-p[9].x)/L,dyw=(p[0].y-p[9].y)/L;
+ const W1={x:p[0].x+dxw*L*.16,y:p[0].y+dyw*L*.16};
+ const W2={x:p[0].x+dxw*L*.52,y:p[0].y+dyw*L*.52};
+ tube(p[0],W1,Wd*.30,Wd*.27);tube(W1,W2,Wd*.27,Wd*.34);
+ /* palm curved mesh */
+ const Lx={x:p[5].x+(p[5].x-p[9].x)*.5,y:p[5].y+(p[5].y-p[9].y)*.5};
+ const Rx={x:p[17].x+(p[17].x-p[13].x)*.5,y:p[17].y+(p[17].y-p[13].y)*.5};
+ const E=[Lx,p[5],p[9],p[13],p[17],Rx];
+ const rows=6,cols=8,grid=[];
+ for(let r=0;r<rows;r++){const tt=r/(rows-1),row=[];
+  for(let c=0;c<cols;c++){const u=c/(cols-1);
+   const top=topAt(u,E);
+   const bxx=p[0].x+(top.x-p[0].x)*.20,byy=p[0].y+(top.y-p[0].y)*.20;
+   let x=bxx+(top.x-bxx)*tt,y=byy+(top.y-byy)*tt;
+   const mid=(cols-1)/2;
+   x+=((c-mid)/mid)*(Wd*.10)*Math.sin(Math.PI*tt);
+   y-=(Wd*.05)*Math.sin(Math.PI*tt)*Math.sin(Math.PI*u);
+   row.push({x,y})}
+  grid.push(row)}
+ grid.forEach(row=>{ctx.beginPath();row.forEach((q,i)=>i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y));ctx.stroke()});
+ for(let c=0;c<cols;c++){ctx.beginPath();
+  for(let r=0;r<rows;r++){const q=grid[r][c];r?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y)}ctx.stroke()}
+ /* finger tubes */
+ const F=[[1,2,3,4],[5,6,7,8],[9,10,11,12],[13,14,15,16],[17,18,19,20]];
+ F.forEach((f,fi)=>{const th=fi===0?Wd*.115:Wd*.095;
+  for(let k=0;k<3;k++){const A=p[f[k]],B=p[f[k+1]];
+   tube(A,B,th*(1-k*.24),th*(1-(k+1)*.24))}
+  const T=p[f[3]],Pv=p[f[2]];
+  const ang=Math.atan2(T.y-Pv.y,T.x-Pv.x);
+  ring(T.x,T.y,ang,th*.28,.5)});
+ /* scanlines */
+ ctx.shadowBlur=0;ctx.globalAlpha=fl*.28;ctx.strokeStyle='#9ef';ctx.lineWidth=.6;
+ for(let y=ay-10;y<by+10;y+=4){ctx.beginPath();ctx.moveTo(ax-10,y);ctx.lineTo(bx+10,y);ctx.stroke()}
  ctx.restore()}
 function renderFrame(H,G,t,headE){ctx.clearRect(0,0,cv.width,cv.height);
  lastH=H||[];lastG=G||[];lastHead=headE||null;
@@ -85,7 +122,7 @@ const go=async()=>{try{
   home.style.display='none';
   if(window.PROJ)window.PROJ.startSession();
   if(window.MES&&MES.S.focus&&window.SCENE3D)SCENE3D.setFocus(true);
-  FX.toast('🎥 camera + hand engine ON ('+eng+') — eco mode active');
+  FX.toast('🎥 camera + hand engine ON ('+eng+') — eco mode');
   detectLoop();
  }catch(e){const m=e.name==='NotAllowedError'?'camera permission allow karo (site settings)':e.message;
   stat.textContent='❌ '+m;FX.toast('❌ '+m)}};
