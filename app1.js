@@ -1,4 +1,4 @@
-/* app1.js — gestures/skeleton/head + camera/hand-engine/menu/photo */
+/* app1.js v3 — hologram hand render + eco detection */
 const FX=(()=>{
 const cv=document.getElementById('cv'),ctx=cv.getContext('2d'),wrap=document.getElementById('wrap'),toastEl=document.getElementById('toast');
 const S={opt:{skeleton:true,holo:false,perf:false,head:true}};
@@ -33,9 +33,30 @@ function smoothHands(LM){if(!LM||LM.length!==smooth.length)smooth=[];
 function skeleton(p){ctx.strokeStyle='rgba(0,255,238,.45)';ctx.lineWidth=1;ctx.beginPath();
  CONN.forEach(([a,b])=>{ctx.moveTo(p[a].x,p[a].y);ctx.lineTo(p[b].x,p[b].y)});ctx.stroke();
  ctx.fillStyle='#fff';p.forEach(q=>{ctx.beginPath();ctx.arc(q.x,q.y,2.5,0,7);ctx.fill()})}
+function holoHand(p,t){const fl=.7+.3*Math.sin(t/90+p[0].x%7);
+ let ax=1e9,ay=1e9,bx=-1e9,by=-1e9;
+ p.forEach(q=>{ax=Math.min(ax,q.x);ay=Math.min(ay,q.y);bx=Math.max(bx,q.x);by=Math.max(by,q.y)});
+ ctx.save();ctx.globalAlpha=fl;ctx.shadowColor='#0af';ctx.shadowBlur=12;
+ ctx.strokeStyle='rgba(140,225,255,.95)';ctx.lineWidth=1.4;ctx.fillStyle='rgba(0,140,255,.20)';
+ ctx.beginPath();ctx.moveTo(p[0].x,p[0].y);[1,5,9,13,17].forEach(i=>ctx.lineTo(p[i].x,p[i].y));
+ ctx.closePath();ctx.fill();ctx.stroke();
+ [[0,1,2,3,4],[5,6,7,8],[9,10,11,12],[13,14,15,16],[17,18,19,20]].forEach(f=>{
+  for(let k=0;k<3;k++){const a=p[f[k]],b=p[f[k+1]];
+   const w1=Math.max(2,9-k*2.5),w2=Math.max(1.5,9-(k+1)*2.5);
+   const dx=b.x-a.x,dy=b.y-a.y,L=Math.hypot(dx,dy)||1,nx=-dy/L,ny=dx/L;
+   ctx.beginPath();ctx.moveTo(a.x+nx*w1,a.y+ny*w1);ctx.lineTo(b.x+nx*w2,b.y+ny*w2);
+   ctx.lineTo(b.x-nx*w2,b.y-ny*w2);ctx.lineTo(a.x-nx*w1,a.y-ny*w1);ctx.closePath();
+   ctx.fill();ctx.stroke();
+   if(k===3){ctx.beginPath();ctx.arc(b.x,b.y,w2,0,7);ctx.fill();ctx.stroke()}}});
+ ctx.shadowBlur=0;ctx.globalAlpha=fl*.3;ctx.strokeStyle='#9ef';ctx.lineWidth=.6;
+ for(let y=ay;y<by;y+=4){ctx.beginPath();ctx.moveTo(ax,y);ctx.lineTo(bx,y);ctx.stroke()}
+ ctx.restore()}
 function renderFrame(H,G,t,headE){ctx.clearRect(0,0,cv.width,cv.height);
  lastH=H||[];lastG=G||[];lastHead=headE||null;
- if(S.opt.skeleton)lastH.forEach(skeleton);
+ const mode=(window.MES&&MES.S.handMode)||'skeleton';
+ lastH.forEach(p=>{if(mode==='skeleton')skeleton(p);
+  else if(mode==='hologram')holoHand(p,t);
+  else{skeleton(p);holoHand(p,t)}});
  if(S.opt.holo){ctx.save();ctx.globalAlpha=.14+.06*Math.sin(t/70);ctx.fillStyle='#0ff';
   for(let y=0;y<cv.height;y+=3)ctx.fillRect(0,y,cv.width,1);
   ctx.globalAlpha=.08;ctx.fillRect(0,0,cv.width,cv.height);ctx.restore()}
@@ -51,7 +72,7 @@ const vid=$('#vid'),home=$('#home'),stat=$('#stat');
 const TV='https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
 const MH='https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
 const MF='https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
-let HL=null,FL=null,flTried=false,lastH=null,lastF=null,fNew=false,eng='none',tick=0;
+let HL=null,FL=null,flTried=false,lastH=null,lastF=null,fNew=false,eng='none',tick=0,lastHandT=0;
 async function vision(){const v=await import(TV);return{v,fs:await v.FilesetResolver.forVisionTasks(TV+'/wasm')}}
 async function mkH(d){const{v,fs}=await vision();return v.HandLandmarker.createFromOptions(fs,{baseOptions:{modelAssetPath:MH,delegate:d},runningMode:'VIDEO',numHands:2})}
 async function mkF(d){const{v,fs}=await vision();return v.FaceLandmarker.createFromOptions(fs,{baseOptions:{modelAssetPath:MF,delegate:d},runningMode:'VIDEO',numFaces:1})}
@@ -63,24 +84,32 @@ const go=async()=>{try{
   try{HL=await mkH('GPU');eng='GPU'}catch(e){HL=await mkH('CPU');eng='CPU'}
   home.style.display='none';
   if(window.PROJ)window.PROJ.startSession();
-  FX.toast('🎥 camera + hand engine ON ('+eng+') — 📁 = projects');
+  if(window.MES&&MES.S.focus&&window.SCENE3D)SCENE3D.setFocus(true);
+  FX.toast('🎥 camera + hand engine ON ('+eng+') — eco mode active');
   detectLoop();
  }catch(e){const m=e.name==='NotAllowedError'?'camera permission allow karo (site settings)':e.message;
   stat.textContent='❌ '+m;FX.toast('❌ '+m)}};
 $('#camBtn').onclick=go;
-async function detectLoop(){while(true){const t=performance.now();
- if(vid.readyState>=2&&HL){try{lastH=HL.detectForVideo(vid,t)}catch(e){}
-  if(FX.S.opt.head){tick++;if(tick%4===0){try{
+async function detectLoop(){while(true){
+ if(document.hidden){await new Promise(r=>setTimeout(r,500));continue}
+ const t=performance.now();
+ const idle=t-lastHandT>10000;
+ if(vid.readyState>=2&&HL&&!idle){
+  try{lastH=HL.detectForVideo(vid,t);
+   if(lastH.landmarks&&lastH.landmarks.length)lastHandT=t}catch(e){}
+  if(FX.S.opt.head){tick++;if(tick%8===0){try{
    if(!FL&&!flTried){flTried=true;try{FL=await mkF('GPU')}catch(e){try{FL=await mkF('CPU')}catch(e2){}}}
    if(FL){lastF=FL.detectForVideo(vid,t);fNew=true}}catch(e){}}}
  }
- await new Promise(r=>setTimeout(r,20))}}
+ await new Promise(r=>setTimeout(r,idle?100:33))}}
 document.querySelectorAll('#menu input').forEach(i=>{FX.S.opt[i.dataset.o]=i.checked;
  i.onchange=()=>{FX.S.opt[i.dataset.o]=i.checked}});
 $('#bClear').onclick=()=>{window.SCENE3D.exec({op:'clear'});FX.toast('🧹 sab 3D objects saaf')};
 $('#bSave').onclick=()=>{const c=document.createElement('canvas');
  c.width=vid.videoWidth||1280;c.height=vid.videoHeight||720;
- const x=c.getContext('2d');x.drawImage(vid,0,0,c.width,c.height);
+ const x=c.getContext('2d');
+ if(!MES.S.focus)x.drawImage(vid,0,0,c.width,c.height);
+ else{x.fillStyle='#04060a';x.fillRect(0,0,c.width,c.height)}
  x.drawImage(document.getElementById('cv3'),0,0,c.width,c.height);
  x.drawImage(document.getElementById('cv'),0,0,c.width,c.height);
  c.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);
