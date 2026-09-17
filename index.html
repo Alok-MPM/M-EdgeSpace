@@ -8,6 +8,7 @@
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%;background:#05060a;overflow:hidden;font-family:'Segoe UI',system-ui,sans-serif}
 #wrap{position:fixed;inset:0;transition:filter .09s}
+#wrap.focus{background:radial-gradient(circle at 50% 45%,#0c1622 0%,#04060a 72%)}
 video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
 canvas{position:absolute;inset:0;width:100%;height:100%}
 #labels{position:absolute;inset:0;z-index:4;pointer-events:none;display:none}
@@ -18,8 +19,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%}
 #saveDot{opacity:.25;transition:.3s}
 #pbtn{border:1px solid #0ff6;background:#0009;color:#0ff;border-radius:10px;padding:4px 10px;font-size:15px;cursor:pointer}
 #mbtn{position:absolute;top:8px;right:10px;z-index:8;border:1px solid #0ff6;background:#0009;color:#0ff;font-size:18px;border-radius:10px;padding:6px 10px;cursor:pointer}
-#vbtn{position:absolute;top:8px;right:56px;z-index:8;border:1px solid #f0f6;background:#0009;color:#f9f;font-size:18px;border-radius:10px;padding:6px 10px;cursor:pointer;overflow:hidden}
-#meter{position:absolute;left:0;bottom:0;height:3px;width:0%;background:#0f8;transition:.1s}
+#bbtn{position:absolute;top:8px;right:56px;z-index:8;border:1px solid #fff3;background:#0009;color:#fff;font-size:18px;border-radius:10px;padding:6px 10px;cursor:pointer}
 #chat{position:absolute;bottom:52px;left:12px;z-index:6;width:210px;height:40px;background:#000c;
  border:1px solid #0ff5;border-radius:12px;overflow:hidden;transition:width .25s,height .25s;display:flex;flex-direction:column}
 #chat.open{width:min(370px,92vw);height:46vh}
@@ -38,7 +38,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%}
 #menu label{display:flex;justify-content:space-between;align-items:center;gap:8px}
 #menu input{width:20px;height:20px;accent-color:#0ff}
 #menu button{border:1px solid #0ff6;background:#0ff2;color:#aff;font:700 13px Consolas;border-radius:10px;padding:9px;cursor:pointer}
-#voiceSel{background:#000a;color:#aff;border:1px solid #0ff5;border-radius:8px;padding:6px;font:11px Consolas;width:100%}
+#handMode{background:#000a;color:#aff;border:1px solid #0ff5;border-radius:8px;padding:6px;font:11px Consolas;width:100%}
 #ppanel{position:absolute;inset:0;z-index:9;background:#000c;backdrop-filter:blur(6px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px;color:#cff}
 #pGrid{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:700px;max-height:52vh;overflow:auto}
 #npName{background:#000a;border:1px solid #0ff5;color:#aff;font:13px Consolas,monospace;border-radius:10px;padding:9px;outline:none;width:180px}
@@ -62,7 +62,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%}
  <div id="topbar"><span id="pname">📁 —</span><span id="saveDot">💾</span><button id="pbtn">📁</button></div>
  <div id="hud"></div>
  <button id="mbtn" onclick="var m=document.getElementById('menu');var o=m.style.display==='block';m.style.display=o?'none':'block';m.style.transform='none';m.style.opacity='1'">⚙️</button>
- <button id="vbtn">🎙<span id="meter"></span></button>
+ <button id="bbtn" title="Focus mode">🌑</button>
  <div id="chat"><div id="chatLog"></div><input id="cmd" placeholder="command likho… (Enter)"></div>
  <div id="chips">
   <button data-c="cube lao">🧊 cube</button><button data-c="sphere banao">⚪ sphere</button>
@@ -75,17 +75,19 @@ canvas{position:absolute;inset:0;width:100%;height:100%}
  <aside id="menu" style="display:none">
   <b style="color:#0ff;font-size:15px">⚙️ OPTIONS</b>
   <label>Skeleton Points <input type="checkbox" data-o="skeleton" checked></label>
+  <label style="flex-direction:column;align-items:stretch;gap:4px">Hand Display
+   <select id="handMode"><option value="skeleton">Skeleton Lines</option><option value="hologram">Hologram Hand (blue)</option><option value="both">Both</option></select></label>
   <label>Holo-Vision Mode <input type="checkbox" data-o="holo"></label>
   <label>Head Control (nod/shake) <input type="checkbox" data-o="head" checked></label>
   <label>Perf Mode (no filters) <input type="checkbox" data-o="perf"></label>
-  <label style="flex-direction:column;align-items:stretch;gap:4px">Agent Voice <select id="voiceSel"></select></label>
   <button id="bLabel">🏷️ Label Mode ON/OFF</button>
   <button id="bGltf">📦 GLTF Model Import</button>
   <button id="bClear">🧹 Sab 3D Objects Hatao</button>
   <button id="bSave">📸 Photo Save Karo</button>
   <div style="opacity:.6;font-size:11px;line-height:1.6">
-   GESTURES: 👉hold=select, hold+drag=rotate • 🤏pinch=size (out=bada,in=chhota) • 🖐palm=move • 🤲🤲=rotate+size+move • ✊hold=delete • ✊flash=deselect • 👉👉=morph<br>
-   VOICE: browser STT → na chale to 🧠 offline whisper (pehli baar ~10MB). "cube lao" "bottle banao" "cube 1 ghumao 45" "bottle_cap hatao" "naam dikhao"</div>
+   🌑 Focus = black studio (sirf hands + 3D objects, background gayab)<br>
+   GESTURES: 👉hold=select+drag-rotate • 🤏pinch=size • 🖐palm=move • ✊hold=delete • ✊flash=deselect • 👉👉=morph<br>
+   Voice = OFF (baad me). Chat/chips = local-ai.</div>
  </aside>
  <div id="ppanel" style="display:none">
   <b style="color:#0ff;font-size:15px">📁 PROJECTS</b>
@@ -95,7 +97,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%}
  </div>
  <div id="home">
   <h1>M-EDGESPACE</h1>
-  <p style="opacity:.6;font-size:11px">Meri Maiya 🌸 • 3D Studio</p>
+  <p style="opacity:.6;font-size:20px">Meri Maiya 🌸 • 3D Studio</p>
   <button id="camBtn">🎥 CAMERA START KARO</button>
   <div id="stat"></div>
  </div>
@@ -109,7 +111,6 @@ setTimeout(()=>{const miss=[];if(!window.APP1_OK)miss.push('app1.js');if(!window
 </script>
 <script src="./app1.js"></script>
 <script src="./mes.js"></script>
-<script src="./voice.js"></script>
 <script src="./app2.js"></script>
 <script type="module" src="./studio3d.js"></script>
 </body>
