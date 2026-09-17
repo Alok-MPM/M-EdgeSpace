@@ -1,4 +1,4 @@
-/* app2.js v5 — chat UI + cloud bridge (unknown pe) + projects */
+/* app2.js v6 — local-only chat + projects (agent bridge baad me) */
 (()=>{
 const box=document.getElementById('cmd'),chat=document.getElementById('chat'),logEl=document.getElementById('chatLog');
 function log(t,cls){const d=document.createElement('div');d.className='msg '+(cls||'a');
@@ -8,23 +8,8 @@ function toast(t){FX.toast(t)}
 window.MES.ui={log,toast};
 chat.addEventListener('click',e=>{e.stopPropagation();chat.classList.add('open');box.focus()});
 document.addEventListener('click',e=>{if(!chat.contains(e.target))chat.classList.remove('open')});
-function execCmds(cs){(cs||[]).slice(0,8).forEach(c=>window.SCENE3D.exec(c))}
-async function agentCall(text){log(text,'u');const pend=log('🧠 soch raha hai...','a');
- const ctl=new AbortController();const to=setTimeout(()=>ctl.abort(),20000);
- try{const r=await fetch('/api/agent',{method:'POST',signal:ctl.signal,
-  headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
-  clearTimeout(to);const out=await r.json();
-  if(out.error)throw new Error(out.error);
-  const reply=out.reply||'Ho gaya';pend.textContent='🧠 '+reply;MES.say(reply);
-  const n=(out.cmds||[]).length;if(n){execCmds(out.cmds);log('🛠 '+n+' command chale','s')}
- }catch(e){clearTimeout(to);pend.textContent='🧠 agent offline: '+(e.message||'')+' — local chala';
-  const r=MES.route(text);if(r.ok)log('⚡ '+r.msg,'a')}
-}
-box.addEventListener('keydown',e=>{if(e.key!=='Enter'||!box.value.trim())return;
- const t=box.value;box.value='';
- const r=MES.handle(t,'chat');
- if(r)agentCall(t)});
-document.querySelectorAll('#chips button').forEach(b=>b.onclick=()=>{MES.handle(b.dataset.c,'chip')});
+box.addEventListener('keydown',e=>{if(e.key==='Enter'&&box.value.trim()){const t=box.value;box.value='';MES.handle(t,'chat')}});
+document.querySelectorAll('#chips button').forEach(b=>b.onclick=()=>MES.handle(b.dataset.c,'chip'));
 })();
 (()=>{
 const LS='mes-projects';const $=s=>document.querySelector(s);
@@ -86,7 +71,7 @@ $('#pImp').onclick=()=>{const i=document.createElement('input');i.type='file';i.
 $('#bLabel').onclick=()=>{MES.labelMode(!MES.S.labelOn);FX.toast(MES.S.labelOn?'🏷️ labels ON':'🏷️ labels OFF')};
 $('#bGltf').onclick=()=>{const i=document.createElement('input');i.type='file';i.accept='.glb,.gltf';
  i.onchange=()=>{FX.toast('📦 load ho raha hai...');
-  window.SCENE3D.importGLTF(i.files[0],nm=>{if(nm)FX.toast('📦 '+nm+' import hua — parts labels me dekho');
+  window.SCENE3D.importGLTF(i.files[0],nm=>{if(nm)FX.toast('📦 '+nm+' import hua — labels me parts dekho');
    else FX.toast('❌ gltf load fail')})};i.click()};
 topbar();
 window.APP2_OK=true;
