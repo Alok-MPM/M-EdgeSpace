@@ -1,4 +1,4 @@
-/* app1.js v8 — self-healing hand engine: retry + crash-recovery + visible status */
+/* app1.js v9 — ridge-stable depth (hologram always on) + neon skeleton redesign */
 const FX=(()=>{
 const cv=document.getElementById('cv'),ctx=cv.getContext('2d'),wrap=document.getElementById('wrap'),toastEl=document.getElementById('toast');
 const S={opt:{skeleton:true,holo:false,perf:false,head:true}};
@@ -7,6 +7,7 @@ const D=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const CONN=[[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
 const FING=[[5,6,7,8],[9,10,11,12],[13,14,15,16],[17,18,19,20]];
 const SUB=[0,1,2,5,6,9,10,13,14,17,18];
+const TIPS=[4,8,12,16,20];
 function gesture(p){const f=FING.map(x=>D(p[x[3]],p[0])>D(p[x[1]],p[0])*1.12);const n=f.filter(Boolean).length;
  if(D(p[4],p[8])<D(p[0],p[9])*.5&&n<=1)return'PINCH';
  if(f[0]&&f[1]&&!f[2]&&!f[3])return'PEACE';
@@ -37,7 +38,7 @@ function setWorld(LW){if(!LW||LW.length!==smoothW.length)smoothW=[];
    y:smoothW[hi][i].y+(q.y-smoothW[hi][i].y)*.7,z:smoothW[hi][i].z+(q.z-smoothW[hi][i].z)*.7}))})}
 function inv3(m){const[a,b,c,d,e,f,g,h,i]=m;
  const A=e*i-f*h,B=-(d*i-f*g),C2=d*h-e*g,det=a*A+b*B+c*C2;
- if(!isFinite(det)||Math.abs(det)<1e-9)return null;
+ if(!isFinite(det)||Math.abs(det)<1e-12)return null;
  return[A/det,B/det,C2/det,-(b*i-c*h)/det,(a*i-c*g)/det,-(a*h-b*g)/det,
   (b*f-c*e)/det,-(a*f-c*d)/det,(a*e-b*d)/det]}
 function fitAll(p,w){const n=SUB.length;
@@ -50,6 +51,8 @@ function fitAll(p,w){const n=SUB.length;
   A[0]+=X*X;A[1]+=X*Y;A[2]+=X*Z;A[4]+=Y*Y;A[5]+=Y*Z;A[8]+=Z*Z;
   B[0]+=sx*X;B[1]+=sx*Y;B[2]+=sx*Z;B[3]+=sy*X;B[4]+=sy*Y;B[5]+=sy*Z}
  A[3]=A[1];A[6]=A[2];A[7]=A[5];
+ const eps=(A[0]+A[4]+A[8])/3*1e-3+1e-9;
+ A[0]+=eps;A[4]+=eps;A[8]+=eps;
  const Ai=inv3(A);if(!Ai)return null;
  const r1=[B[0]*Ai[0]+B[1]*Ai[3]+B[2]*Ai[6],B[0]*Ai[1]+B[1]*Ai[4]+B[2]*Ai[7],B[0]*Ai[2]+B[1]*Ai[5]+B[2]*Ai[8]];
  const r2=[B[3]*Ai[0]+B[4]*Ai[3]+B[5]*Ai[6],B[3]*Ai[1]+B[4]*Ai[4]+B[5]*Ai[7],B[3]*Ai[2]+B[4]*Ai[5]+B[5]*Ai[8]];
@@ -59,9 +62,22 @@ function fitAll(p,w){const n=SUB.length;
  const out=[];
  for(let i=0;i<21;i++)out.push(-((w[i].x-wx)*r3[0]+(w[i].y-wy)*r3[1]+(w[i].z-wz)*r3[2]));
  return out}
-function skeleton(p){ctx.strokeStyle='rgba(0,255,238,.45)';ctx.lineWidth=1;ctx.beginPath();
- CONN.forEach(([a,b])=>{ctx.moveTo(p[a].x,p[a].y);ctx.lineTo(p[b].x,p[b].y)});ctx.stroke();
- ctx.fillStyle='#fff';p.forEach(q=>{ctx.beginPath();ctx.arc(q.x,q.y,2.5,0,7);ctx.fill()})}
+/* ---- neon skeleton redesign ---- */
+function skeleton(p){
+ ctx.save();ctx.lineCap='round';ctx.lineJoin='round';
+ ctx.beginPath();ctx.moveTo(p[0].x,p[0].y);[1,5,9,13,17].forEach(i=>ctx.lineTo(p[i].x,p[i].y));
+ ctx.closePath();ctx.fillStyle='rgba(0,180,255,.10)';ctx.fill();
+ ctx.strokeStyle='rgba(0,190,255,.16)';ctx.lineWidth=6;
+ ctx.beginPath();CONN.forEach(([a,b])=>{ctx.moveTo(p[a].x,p[a].y);ctx.lineTo(p[b].x,p[b].y)});ctx.stroke();
+ ctx.strokeStyle='rgba(150,240,255,.9)';ctx.lineWidth=2;
+ ctx.beginPath();CONN.forEach(([a,b])=>{ctx.moveTo(p[a].x,p[a].y);ctx.lineTo(p[b].x,p[b].y)});ctx.stroke();
+ p.forEach((q,i)=>{const r=TIPS.includes(i)?4:2.6;
+  const g=ctx.createRadialGradient(q.x,q.y,0,q.x,q.y,r*2.4);
+  g.addColorStop(0,'rgba(255,255,255,.95)');g.addColorStop(.4,'rgba(120,230,255,.7)');g.addColorStop(1,'rgba(0,150,255,0)');
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(q.x,q.y,r*2.4,0,7);ctx.fill()});
+ ctx.strokeStyle='rgba(180,245,255,.6)';ctx.lineWidth=1.2;
+ TIPS.forEach(i=>{ctx.beginPath();ctx.arc(p[i].x,p[i].y,7,0,7);ctx.stroke()});
+ ctx.restore()}
 function renderFrame(H,G,t,headE){ctx.clearRect(0,0,cv.width,cv.height);
  lastH=H||[];lastG=G||[];lastHead=headE||null;
  const mode=(window.MES&&MES.S.handMode)||'skeleton';
@@ -70,7 +86,8 @@ function renderFrame(H,G,t,headE){ctx.clearRect(0,0,cv.width,cv.height);
   if(w&&w.length===21){const dRaw=fitAll(p,w);
    if(dRaw){if(!smoothD[hi]||smoothD[hi].length!==21)smoothD[hi]=dRaw.slice();
     smoothD[hi]=dRaw.map((v,i)=>Math.max(-.12,Math.min(.12,smoothD[hi][i]+(v-smoothD[hi][i])*.5)));
-    hand3D[hi]=p.map((q,i)=>({x:q.x,y:q.y,d:smoothD[hi][i]}))}else hand3D[hi]=null;
+    hand3D[hi]=p.map((q,i)=>({x:q.x,y:q.y,d:smoothD[hi][i]}))}
+   else hand3D[hi]=p.map(q=>({x:q.x,y:q.y,d:0}));
   }else hand3D[hi]=null;
   if(mode!=='hologram')skeleton(p)});
  for(let i=lastH.length;i<2;i++)hand3D[i]=null;
@@ -90,7 +107,7 @@ const TV='https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
 const MH='https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
 const MF='https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
 let HL=null,FL=null,flTried=false,lastH=null,lastW=null,lastF=null,fNew=false,eng='none',tick=0,lastHandT=0;
-let detErr='',detFail=0,fps=60;
+let detErr='',detFail=0,fps=60,prevT=0;
 async function vision(){const v=await import(TV);return{v,fs:await v.FilesetResolver.forVisionTasks(TV+'/wasm')}}
 async function mkH(d){const{v,fs}=await vision();return v.HandLandmarker.createFromOptions(fs,{baseOptions:{modelAssetPath:MH,delegate:d},runningMode:'VIDEO',numHands:2})}
 async function mkF(d){const{v,fs}=await vision();return v.FaceLandmarker.createFromOptions(fs,{baseOptions:{modelAssetPath:MF,delegate:d},runningMode:'VIDEO',numFaces:1})}
@@ -142,7 +159,8 @@ $('#bSave').onclick=()=>{const c=document.createElement('canvas');
  c.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);
   a.download='m-edgespace-'+Date.now()+'.png';a.click();FX.toast('📸 photo save')})};
 let handSeen=false,wT=0;
-(function loop(t){FX.setWorld(lastW);
+(function loop(t){const dt=t-prevT||16;prevT=t;fps=fps*.9+(1000/dt)*.1;
+ FX.setWorld(lastW);
  const H=FX.smoothHands(lastH&&lastH.landmarks);const G=H.map(FX.gesture);
  let headE=null;if(fNew){headE=FX.headEvt(lastF&&lastF.faceLandmarks&&lastF.faceLandmarks[0],t||0);fNew=false}
  FX.renderFrame(H,G,t||0,headE);
@@ -152,7 +170,5 @@ let handSeen=false,wT=0;
   else if(!handSeen)FX.toast('🖐 haath camera me dikhao (20-30 cm)')}
  if(hud)hud.textContent='FPS '+(fps|0)+' • HANDS '+H.length+' • ENG '+eng+(detErr?' ❌'+detErr:' ✔');
  requestAnimationFrame(loop)})();
-let pt=performance.now();
-setInterval(()=>{const n=performance.now();fps=fps*.9+(1000/Math.max(1,n-pt))*0+.1*fps;pt=n},500);
 window.APP1_OK=true;
 })();
