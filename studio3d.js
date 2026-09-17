@@ -1,4 +1,4 @@
-/* studio3d.js v7 — focus-mode depth grid + eco rendering */
+/* studio3d.js v8 — TRUE 3D hologram hand rig (capsules+ellipsoids, depth-buffer) */
 import*as THREE from'three';
 import{GLTFLoader}from'three/addons/loaders/GLTFLoader.js';
 const cv3=document.getElementById('cv3');
@@ -9,6 +9,48 @@ scene.add(new THREE.AmbientLight(0xffffff,.75));
 const dl=new THREE.DirectionalLight(0x88eeff,.9);dl.position.set(2,3,4);scene.add(dl);
 const grid=new THREE.GridHelper(24,48,0x0f3f3f,0x0a2525);
 grid.material.transparent=true;grid.material.opacity=.35;grid.position.y=-1.6;grid.visible=false;scene.add(grid);
+/* ---- hand rig ---- */
+const HANDZ=3.4,ZS=7,UPV=new THREE.Vector3(0,1,0);
+const capG=new THREE.CapsuleGeometry(1,1,4,8),sphG=new THREE.SphereGeometry(1,12,8);
+const solidMat=new THREE.MeshBasicMaterial({color:0x0e2c4e,transparent:true,opacity:.34});
+const wireMat=new THREE.MeshBasicMaterial({color:0x9fe8ff,wireframe:true,transparent:true,opacity:.5});
+const mkPart=g=>{const s=new THREE.Mesh(g,solidMat);s.add(new THREE.Mesh(g,wireMat));return s};
+const FR=[[1,2,3,4],[5,6,7,8],[9,10,11,12],[13,14,15,16],[17,18,19,20]];
+const _d=new THREE.Vector3(),_q=new THREE.Quaternion(),_m4=new THREE.Matrix4();
+const _x=new THREE.Vector3(),_y=new THREE.Vector3(),_z=new THREE.Vector3(),_v=new THREE.Vector3();
+function toWorld(sx,sy,d){_v.set((sx/innerWidth)*2-1,-(sy/innerHeight)*2+1,.5).unproject(cam);
+ _d.copy(_v).sub(cam.position).normalize();
+ const t=(HANDZ-cam.position.z)/_d.z;
+ return new THREE.Vector3(cam.position.x+_d.x*t,cam.position.y+_d.y*t,HANDZ-d*ZS)}
+function setCap(m,A,B,r){_d.copy(B).sub(A);const L=_d.length();if(L<1e-6){m.visible=false;return}
+ m.visible=true;m.position.copy(A).add(B).multiplyScalar(.5);
+ _q.setFromUnitVectors(UPV,_d.divideScalar(L));m.quaternion.copy(_q);m.scale.set(r,L,r)}
+function setEll(m,c,q,s){m.position.copy(c);m.quaternion.copy(q);m.scale.copy(s)}
+function makeRig(){const g=new THREE.Group(),caps=[];
+ for(let i=0;i<17;i++){const p=mkPart(capG);caps.push(p);g.add(p)}
+ const e=[mkPart(sphG),mkPart(sphG),mkPart(sphG)];e.forEach(p=>g.add(p));
+ scene.add(g);
+ return{group:g,caps,e,prev:null,update(h3,show){g.visible=!!(show&&h3);if(!show||!h3)return;
+  let W3=h3.map(j=>toWorld(j.x,j.y,j.d));
+  if(this.prev&&this.prev.length===21)W3=W3.map((p,i)=>this.prev[i].clone().lerp(p,.55));
+  this.prev=W3;
+  const wd=W3[5].distanceTo(W3[17])||.08,L=W3[0].distanceTo(W3[9])||.1;
+  let pi=0;
+  FR.forEach((f,fi)=>{const th=(fi===0?.115:.095)*wd;
+   for(let k=0;k<3;k++)setCap(this.caps[pi++],W3[f[k]],W3[f[k+1]],th*(1-k*.16))});
+  const dir=_d.copy(W3[0]).sub(W3[9]).normalize();
+  const W1=_v.copy(W3[0]).addScaledVector(dir,L*.16).clone();
+  const W2=_v.copy(W3[0]).addScaledVector(dir,L*.52).clone();
+  setCap(this.caps[pi++],W3[0],W1,wd*.30);setCap(this.caps[pi++],W1,W2,wd*.30);
+  _x.copy(W3[5]).sub(W3[17]).normalize();
+  _y.copy(W3[9]).sub(W3[0]).normalize();_y.addScaledVector(_x,-_y.dot(_x)).normalize();
+  _z.crossVectors(_x,_y);_m4.makeBasis(_x,_y,_z);_q.setFromRotationMatrix(_m4);
+  setEll(this.e[0],_v.copy(W3[0]).add(W3[9]).multiplyScalar(.5).clone(),_q,new THREE.Vector3(wd*.52,L*.42,wd*.30));
+  setEll(this.e[1],_v.copy(W3[0]).add(W3[1]).multiplyScalar(.5).clone(),_q,new THREE.Vector3(wd*.30,L*.30,wd*.26));
+  setEll(this.e[2],_v.copy(W3[5]).add(W3[17]).multiplyScalar(.5).addScaledVector(_y,-L*.05).clone(),_q,new THREE.Vector3(wd*.58,L*.20,wd*.28));
+ }}}
+const rigA=makeRig(),rigB=makeRig();
+/* ---- objects ---- */
 let objs=[],sel=null,oid=0,helper=null,lastName='',selName='',counts={};
 let pin0=null,prevTip=null;
 const ray=new THREE.Raycaster(),ndc=new THREE.Vector2(),PL=new THREE.Plane(new THREE.Vector3(0,0,1),0);
@@ -56,9 +98,9 @@ function select(m){sel=m;selName=m?m.userData.mesName:'';pin0=null;prevTip=null;
  if(helper){scene.remove(helper);helper=null}
  if(m){helper=new THREE.BoxHelper(m,0xffff00);scene.add(helper)}}
 const rootOf=o=>{while(o&&(!o.userData||!o.userData.mesName))o=o.parent;return o};
-const pick=pt=>{ndc.set(pt.x/innerWidth*2-1,-(pt.y/innerHeight*2-1));ray.setFromCamera(ndc,cam);
+const pick=pt=>{ndc.set(pt.x/innerWidth*2-1,-(pt.y/innerHeight)*2+1,0);ray.setFromCamera(ndc,cam);
  const h=ray.intersectObjects(objs,true)[0];return h?rootOf(h.object):null};
-const planePt=(pt,z)=>{ndc.set(pt.x/innerWidth*2-1,-(pt.y/innerHeight*2-1));ray.setFromCamera(ndc,cam);
+const planePt=(pt,z)=>{ndc.set(pt.x/innerWidth*2-1,-(pt.y/innerHeight)*2+1,0);ray.setFromCamera(ndc,cam);
  PL.constant=-z;const v=new THREE.Vector3();return ray.ray.intersectPlane(PL,v)?v:null};
 const palm=p=>({x:(p[0].x+p[5].x+p[9].x+p[13].x+p[17].x)/5,y:(p[0].y+p[5].y+p[9].y+p[13].y+p[17].y)/5});
 const d2=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
@@ -110,6 +152,9 @@ let holdT=0,fistT=0,prevG='',tapN=0,tapT=0,tapStart=0;
 const GST={};const stable=(i,g)=>{const s=GST[i]||(GST[i]={g:'',n:0});s.g===g?s.n++:(s.g=g,s.n=1);return s.n>=3};
 let last=performance.now();
 function loop(){requestAnimationFrame(loop);renderer.render(scene,cam);
+ const hmode=(window.MES&&MES.S.handMode)||'skeleton';
+ rigA.update(FX.getHand3D(0),hmode!=='skeleton');
+ rigB.update(FX.getHand3D(1),hmode!=='skeleton');
  if(window.MES&&MES.S.labelOn)MES.tickLabels(project);
  const now=performance.now(),dt=now-last;last=now;
  const{H,G}=FX.getHands();const g0=G[0]||'';
