@@ -1,13 +1,15 @@
-/* app1.js v9 — ridge-stable depth (hologram always on) + neon skeleton redesign */
+/* app1.js v10 — proven 2D depth-sorted hologram hand + clean skeleton */
 const FX=(()=>{
 const cv=document.getElementById('cv'),ctx=cv.getContext('2d'),wrap=document.getElementById('wrap'),toastEl=document.getElementById('toast');
 const S={opt:{skeleton:true,holo:false,perf:false,head:true}};
-let smooth=[],smoothW=[],smoothD=[],hand3D=[null,null],toastT=0,vidEl=null,lastH=[],lastG=[],lastHead=null;
+let smooth=[],smoothW=[],toastT=0,vidEl=null,lastH=[],lastG=[],lastHead=null;
 const D=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const CONN=[[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
 const FING=[[5,6,7,8],[9,10,11,12],[13,14,15,16],[17,18,19,20]];
 const SUB=[0,1,2,5,6,9,10,13,14,17,18];
-const TIPS=[4,8,12,16,20];
+const FILL='rgba(6,14,28,.86)',BACK='rgba(110,190,255,.20)',RING='rgba(150,225,255,.5)',
+ FGLOW='rgba(0,170,255,.28)',FRONT='rgba(215,246,255,.95)',RIM='rgba(140,220,255,.75)',WMID='rgba(175,232,255,.7)';
+const BACKA=[Math.PI*1.2,Math.PI*1.5,Math.PI*1.8],FRONTA=[Math.PI*.2,Math.PI*.5,Math.PI*.8];
 function gesture(p){const f=FING.map(x=>D(p[x[3]],p[0])>D(p[x[1]],p[0])*1.12);const n=f.filter(Boolean).length;
  if(D(p[4],p[8])<D(p[0],p[9])*.5&&n<=1)return'PINCH';
  if(f[0]&&f[1]&&!f[2]&&!f[3])return'PEACE';
@@ -62,42 +64,83 @@ function fitAll(p,w){const n=SUB.length;
  const out=[];
  for(let i=0;i<21;i++)out.push(-((w[i].x-wx)*r3[0]+(w[i].y-wy)*r3[1]+(w[i].z-wz)*r3[2]));
  return out}
-/* ---- neon skeleton redesign ---- */
-function skeleton(p){
- ctx.save();ctx.lineCap='round';ctx.lineJoin='round';
- ctx.beginPath();ctx.moveTo(p[0].x,p[0].y);[1,5,9,13,17].forEach(i=>ctx.lineTo(p[i].x,p[i].y));
- ctx.closePath();ctx.fillStyle='rgba(0,180,255,.10)';ctx.fill();
- ctx.strokeStyle='rgba(0,190,255,.16)';ctx.lineWidth=6;
- ctx.beginPath();CONN.forEach(([a,b])=>{ctx.moveTo(p[a].x,p[a].y);ctx.lineTo(p[b].x,p[b].y)});ctx.stroke();
- ctx.strokeStyle='rgba(150,240,255,.9)';ctx.lineWidth=2;
- ctx.beginPath();CONN.forEach(([a,b])=>{ctx.moveTo(p[a].x,p[a].y);ctx.lineTo(p[b].x,p[b].y)});ctx.stroke();
- p.forEach((q,i)=>{const r=TIPS.includes(i)?4:2.6;
-  const g=ctx.createRadialGradient(q.x,q.y,0,q.x,q.y,r*2.4);
-  g.addColorStop(0,'rgba(255,255,255,.95)');g.addColorStop(.4,'rgba(120,230,255,.7)');g.addColorStop(1,'rgba(0,150,255,0)');
-  ctx.fillStyle=g;ctx.beginPath();ctx.arc(q.x,q.y,r*2.4,0,7);ctx.fill()});
- ctx.strokeStyle='rgba(180,245,255,.6)';ctx.lineWidth=1.2;
- TIPS.forEach(i=>{ctx.beginPath();ctx.arc(p[i].x,p[i].y,7,0,7);ctx.stroke()});
+/* clean classic skeleton */
+function skeleton(p){ctx.strokeStyle='rgba(0,255,238,.55)';ctx.lineWidth=1.2;ctx.beginPath();
+ CONN.forEach(([a,b])=>{ctx.moveTo(p[a].x,p[a].y);ctx.lineTo(p[b].x,p[b].y)});ctx.stroke();
+ ctx.fillStyle='#eaffff';p.forEach(q=>{ctx.beginPath();ctx.arc(q.x,q.y,2.4,0,7);ctx.fill()})}
+/* 2D tube helpers */
+function tubeG(A,B,rA,rB){const dx=B.x-A.x,dy=B.y-A.y,L2=Math.hypot(dx,dy)||1;
+ return{A,B,rA,rB,ux:dx/L2,uy:dy/L2,nx:-dy/L2,ny:dx/L2,ang:Math.atan2(dy,dx)}}
+function wp(g,tt,th){const r=g.rA+(g.rB-g.rA)*tt,ca=Math.cos(th),sa=Math.sin(th)*.4;
+ return{x:g.A.x+(g.B.x-g.A.x)*tt+g.nx*r*ca+g.ux*r*sa,
+        y:g.A.y+(g.B.y-g.A.y)*tt+g.ny*r*ca+g.uy*r*sa}}
+function wire(g,th){const a=wp(g,0,th),m=wp(g,.5,th),b=wp(g,1,th);
+ ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(m.x,m.y);ctx.lineTo(b.x,b.y);ctx.stroke()}
+function sil(g){const q=[wp(g,0,0),wp(g,1,0),wp(g,1,Math.PI),wp(g,0,Math.PI)];
+ ctx.moveTo(q[0].x,q[0].y);ctx.lineTo(q[1].x,q[1].y);ctx.lineTo(q[2].x,q[2].y);ctx.lineTo(q[3].x,q[3].y);ctx.closePath()}
+function silStroke(g){ctx.beginPath();sil(g);ctx.stroke()}
+function ringAt(P,ang,r){ctx.beginPath();ctx.ellipse(P.x,P.y,r,Math.max(1,r*.4),ang,0,7);ctx.stroke()}
+function tubeDraw(g,tip,rTip){
+ ctx.strokeStyle=BACK;ctx.lineWidth=1;BACKA.forEach(th=>wire(g,th));
+ ctx.beginPath();sil(g);ctx.fillStyle=FILL;ctx.fill();
+ ctx.strokeStyle=RING;ctx.lineWidth=1;ringAt(g.A,g.ang,g.rA);ringAt(g.B,g.ang,g.rB);
+ if(tip){ctx.beginPath();ctx.arc(tip.x,tip.y,Math.max(2,rTip*.95),0,7);ctx.stroke()}
+ ctx.strokeStyle=FGLOW;ctx.lineWidth=3;FRONTA.forEach(th=>wire(g,th));
+ ctx.strokeStyle=FRONT;ctx.lineWidth=1.2;FRONTA.forEach(th=>wire(g,th));
+ ctx.strokeStyle=RIM;ctx.lineWidth=1.2;silStroke(g)}
+/* depth-sorted hologram hand, proper proportions */
+function holoHand2D(p,t,w){
+ const L=D(p[0],p[9])||1,Wd=D(p[5],p[17])||1;
+ const dps=w?fitAll(p,w):null;
+ const ring=[0,1,5,9,13,17];
+ const palmD=dps?ring.reduce((s,i)=>s+dps[i],0)/6:0;
+ const C={x:0,y:0};ring.forEach(i=>{C.x+=p[i].x;C.y+=p[i].y});C.x/=6;C.y/=6;
+ const parts=[];
+ parts.push({d:palmD,draw:()=>{
+  ctx.beginPath();
+  for(let k=0;k<6;k++){const a=p[ring[k]],b=p[ring[(k+1)%6]];
+   ctx.moveTo(C.x,C.y);ctx.lineTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.closePath()}
+  ctx.fillStyle=FILL;ctx.fill();
+  ctx.strokeStyle=WMID;ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(p[ring[0]].x,p[ring[0]].y);
+  for(let k=1;k<6;k++)ctx.lineTo(p[ring[k]].x,p[ring[k]].y);ctx.closePath();ctx.stroke();
+  ctx.beginPath();ring.forEach((i,k)=>{const q={x:C.x+(p[i].x-C.x)*.55,y:C.y+(p[i].y-C.y)*.55};
+   k?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y)});ctx.closePath();ctx.stroke();
+  ctx.strokeStyle=RIM;ctx.lineWidth=1.2;
+  ctx.beginPath();ctx.moveTo(p[ring[0]].x,p[ring[0]].y);
+  for(let k=1;k<6;k++)ctx.lineTo(p[ring[k]].x,p[ring[k]].y);ctx.closePath();ctx.stroke()}});
+ const dxw=(p[0].x-p[9].x)/L,dyw=(p[0].y-p[9].y)/L;
+ const W1={x:p[0].x+dxw*L*.14,y:p[0].y+dyw*L*.14};
+ const W2={x:p[0].x+dxw*L*.44,y:p[0].y+dyw*L*.44};
+ const d0=dps?dps[0]:0;
+ parts.push({d:d0-.004,draw:()=>tubeDraw(tubeG(p[0],W1,Wd*.24,Wd*.22))});
+ parts.push({d:d0+.010,draw:()=>tubeDraw(tubeG(W1,W2,Wd*.22,Wd*.26))});
+ const F=[[1,2,3,4],[5,6,7,8],[9,10,11,12],[13,14,15,16],[17,18,19,20]];
+ F.forEach((f,fi)=>{const th=(fi===0?.085:.068)*Wd;
+  let rest=0;for(let k=0;k<3;k++)rest+=w?Math.hypot(w[f[k+1]].x-w[f[k]].x,w[f[k+1]].y-w[f[k]].y,w[f[k+1]].z-w[f[k]].z):D(p[f[k]],p[f[k+1]]);
+  const tipDist=w?Math.hypot(w[f[3]].x-w[f[0]].x,w[f[3]].y-w[f[0]].y,w[f[3]].z-w[f[0]].z):D(p[f[3]],p[f[0]]);
+  const folded=tipDist<rest*.62;
+  for(let k=0;k<3;k++){const g=tubeG(p[f[k]],p[f[k+1]],th*(1-k*.15),th*(1-(k+1)*.15));
+   const dm=dps?(dps[f[k]]+dps[f[k+1]])/2:0;
+   const hidden=folded&&dps&&dm>palmD+.008;
+   if(!hidden)parts.push({d:dm,draw:()=>tubeDraw(g,k===2?p[f[3]]:null,th*(1-(k+1)*.15))})}});
+ parts.sort((a,b)=>b.d-a.d);
+ ctx.save();ctx.globalAlpha=.95;ctx.lineJoin='round';
+ parts.forEach(pt=>pt.draw());
  ctx.restore()}
 function renderFrame(H,G,t,headE){ctx.clearRect(0,0,cv.width,cv.height);
  lastH=H||[];lastG=G||[];lastHead=headE||null;
  const mode=(window.MES&&MES.S.handMode)||'skeleton';
- lastH.forEach((p,hi)=>{
-  const w=smoothW[hi];
-  if(w&&w.length===21){const dRaw=fitAll(p,w);
-   if(dRaw){if(!smoothD[hi]||smoothD[hi].length!==21)smoothD[hi]=dRaw.slice();
-    smoothD[hi]=dRaw.map((v,i)=>Math.max(-.12,Math.min(.12,smoothD[hi][i]+(v-smoothD[hi][i])*.5)));
-    hand3D[hi]=p.map((q,i)=>({x:q.x,y:q.y,d:smoothD[hi][i]}))}
-   else hand3D[hi]=p.map(q=>({x:q.x,y:q.y,d:0}));
-  }else hand3D[hi]=null;
-  if(mode!=='hologram')skeleton(p)});
- for(let i=lastH.length;i<2;i++)hand3D[i]=null;
+ lastH.forEach((p,hi)=>{const w=smoothW[hi];const ww=(w&&w.length===21)?w:null;
+  if(mode==='skeleton')skeleton(p);
+  else if(mode==='hologram')holoHand2D(p,t,ww);
+  else{skeleton(p);holoHand2D(p,t,ww)}});
  if(S.opt.holo){ctx.save();ctx.globalAlpha=.12;ctx.fillStyle='#0ff';
   for(let y=0;y<cv.height;y+=4)ctx.fillRect(0,y,cv.width,1);ctx.restore()}
  if(t>toastT)toastEl.classList.remove('on')}
 function resize(){cv.width=innerWidth;cv.height=innerHeight}
 addEventListener('resize',resize);resize();
 return{S,gesture,headEvt,smoothHands,setWorld,renderFrame,toast,setVid:v=>{vidEl=v},
- getHand3D:i=>hand3D[i]||null,
  getHands:()=>({H:lastH,G:lastG}),getHead:()=>lastHead};
 })();
 (()=>{
@@ -123,7 +166,7 @@ const go=async()=>{try{
   let ok=await loadHL(),tries=0;
   while(!ok){tries++;FX.toast('🧠 model load fail #'+tries+' — 4s me retry ['+detErr+']');
    await new Promise(r=>setTimeout(r,4000));ok=await loadHL()}
-  FX.toast('🧠 hand model ON ('+eng+') — TRUE-3D rig');
+  FX.toast('🧠 hand model ON ('+eng+')');
   if(window.PROJ)window.PROJ.startSession();
   if(window.MES&&MES.S.focus&&window.SCENE3D)SCENE3D.setFocus(true);
   detectLoop();
