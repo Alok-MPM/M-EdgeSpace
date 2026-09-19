@@ -1,4 +1,4 @@
-/* app1.js v10 — proven 2D depth-sorted hologram hand + clean skeleton */
+/* app1.js v11 — speed-adaptive smoothing (sthir), transparent hologram, mobile play-fix */
 const FX=(()=>{
 const cv=document.getElementById('cv'),ctx=cv.getContext('2d'),wrap=document.getElementById('wrap'),toastEl=document.getElementById('toast');
 const S={opt:{skeleton:true,holo:false,perf:false,head:true}};
@@ -7,8 +7,8 @@ const D=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const CONN=[[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
 const FING=[[5,6,7,8],[9,10,11,12],[13,14,15,16],[17,18,19,20]];
 const SUB=[0,1,2,5,6,9,10,13,14,17,18];
-const FILL='rgba(6,14,28,.86)',BACK='rgba(110,190,255,.20)',RING='rgba(150,225,255,.5)',
- FGLOW='rgba(0,170,255,.28)',FRONT='rgba(215,246,255,.95)',RIM='rgba(140,220,255,.75)',WMID='rgba(175,232,255,.7)';
+const FILL='rgba(8,20,40,.55)',BACK='rgba(110,190,255,.18)',RING='rgba(150,225,255,.5)',
+ FGLOW='rgba(0,170,255,.25)',FRONT='rgba(215,246,255,.95)',RIM='rgba(140,220,255,.75)',WMID='rgba(175,232,255,.7)';
 const BACKA=[Math.PI*1.2,Math.PI*1.5,Math.PI*1.8],FRONTA=[Math.PI*.2,Math.PI*.5,Math.PI*.8];
 function gesture(p){const f=FING.map(x=>D(p[x[3]],p[0])>D(p[x[1]],p[0])*1.12);const n=f.filter(Boolean).length;
  if(D(p[4],p[8])<D(p[0],p[9])*.5&&n<=1)return'PINCH';
@@ -32,12 +32,15 @@ function smoothHands(LM){if(!LM||LM.length!==smooth.length)smooth=[];
   const s=Math.max(cv.width/vw,cv.height/vh);
   const raw=lm.map(q=>({x:cv.width-((cv.width-vw*s)/2+q.x*vw*s),y:(cv.height-vh*s)/2+q.y*vh*s}));
   if(!smooth[hi])smooth[hi]=raw.map(q=>({...q}));
-  const pts=raw.map((q,i)=>({x:smooth[hi][i].x+(q.x-smooth[hi][i].x)*.72,y:smooth[hi][i].y+(q.y-smooth[hi][i].y)*.72}));
+  let spd=0;for(let i=0;i<raw.length;i+=3)spd+=Math.hypot(raw[i].x-smooth[hi][i].x,raw[i].y-smooth[hi][i].y);
+  spd/=7;
+  const a=Math.max(.32,Math.min(.85,.32+spd*.05));
+  const pts=raw.map((q,i)=>({x:smooth[hi][i].x+(q.x-smooth[hi][i].x)*a,y:smooth[hi][i].y+(q.y-smooth[hi][i].y)*a}));
   smooth[hi]=pts.map(q=>({...q}));return pts})}
 function setWorld(LW){if(!LW||LW.length!==smoothW.length)smoothW=[];
  (LW||[]).forEach((w,hi)=>{if(!smoothW[hi])smoothW[hi]=w.map(q=>({...q}));
-  smoothW[hi]=w.map((q,i)=>({x:smoothW[hi][i].x+(q.x-smoothW[hi][i].x)*.7,
-   y:smoothW[hi][i].y+(q.y-smoothW[hi][i].y)*.7,z:smoothW[hi][i].z+(q.z-smoothW[hi][i].z)*.7}))})}
+  smoothW[hi]=w.map((q,i)=>({x:smoothW[hi][i].x+(q.x-smoothW[hi][i].x)*.5,
+   y:smoothW[hi][i].y+(q.y-smoothW[hi][i].y)*.5,z:smoothW[hi][i].z+(q.z-smoothW[hi][i].z)*.5}))})}
 function inv3(m){const[a,b,c,d,e,f,g,h,i]=m;
  const A=e*i-f*h,B=-(d*i-f*g),C2=d*h-e*g,det=a*A+b*B+c*C2;
  if(!isFinite(det)||Math.abs(det)<1e-12)return null;
@@ -64,11 +67,9 @@ function fitAll(p,w){const n=SUB.length;
  const out=[];
  for(let i=0;i<21;i++)out.push(-((w[i].x-wx)*r3[0]+(w[i].y-wy)*r3[1]+(w[i].z-wz)*r3[2]));
  return out}
-/* clean classic skeleton */
-function skeleton(p){ctx.strokeStyle='rgba(0,255,238,.55)';ctx.lineWidth=1.2;ctx.beginPath();
+function skeleton(p){ctx.strokeStyle='rgba(0,255,238,.6)';ctx.lineWidth=1.4;ctx.beginPath();
  CONN.forEach(([a,b])=>{ctx.moveTo(p[a].x,p[a].y);ctx.lineTo(p[b].x,p[b].y)});ctx.stroke();
  ctx.fillStyle='#eaffff';p.forEach(q=>{ctx.beginPath();ctx.arc(q.x,q.y,2.4,0,7);ctx.fill()})}
-/* 2D tube helpers */
 function tubeG(A,B,rA,rB){const dx=B.x-A.x,dy=B.y-A.y,L2=Math.hypot(dx,dy)||1;
  return{A,B,rA,rB,ux:dx/L2,uy:dy/L2,nx:-dy/L2,ny:dx/L2,ang:Math.atan2(dy,dx)}}
 function wp(g,tt,th){const r=g.rA+(g.rB-g.rA)*tt,ca=Math.cos(th),sa=Math.sin(th)*.4;
@@ -88,7 +89,6 @@ function tubeDraw(g,tip,rTip){
  ctx.strokeStyle=FGLOW;ctx.lineWidth=3;FRONTA.forEach(th=>wire(g,th));
  ctx.strokeStyle=FRONT;ctx.lineWidth=1.2;FRONTA.forEach(th=>wire(g,th));
  ctx.strokeStyle=RIM;ctx.lineWidth=1.2;silStroke(g)}
-/* depth-sorted hologram hand, proper proportions */
 function holoHand2D(p,t,w){
  const L=D(p[0],p[9])||1,Wd=D(p[5],p[17])||1;
  const dps=w?fitAll(p,w):null;
@@ -151,6 +151,7 @@ const MH='https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_l
 const MF='https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
 let HL=null,FL=null,flTried=false,lastH=null,lastW=null,lastF=null,fNew=false,eng='none',tick=0,lastHandT=0;
 let detErr='',detFail=0,fps=60,prevT=0;
+addEventListener('touchstart',()=>{vid.play().catch(()=>{})},{once:true});
 async function vision(){const v=await import(TV);return{v,fs:await v.FilesetResolver.forVisionTasks(TV+'/wasm')}}
 async function mkH(d){const{v,fs}=await vision();return v.HandLandmarker.createFromOptions(fs,{baseOptions:{modelAssetPath:MH,delegate:d},runningMode:'VIDEO',numHands:2})}
 async function mkF(d){const{v,fs}=await vision();return v.FaceLandmarker.createFromOptions(fs,{baseOptions:{modelAssetPath:MF,delegate:d},runningMode:'VIDEO',numFaces:1})}
@@ -176,7 +177,7 @@ $('#camBtn').onclick=go;
 async function detectLoop(){while(true){
  if(document.hidden){await new Promise(r=>setTimeout(r,500));continue}
  const t=performance.now();
- const idle=t-lastHandT>10000;
+ const idle=t-lastHandT>6000;
  if(vid.readyState>=2&&HL&&!idle){
   try{lastH=HL.detectForVideo(vid,t);lastW=lastH.worldLandmarks||null;detFail=0;
    if(lastH.landmarks&&lastH.landmarks.length)lastHandT=t;
@@ -208,9 +209,9 @@ let handSeen=false,wT=0;
  let headE=null;if(fNew){headE=FX.headEvt(lastF&&lastF.faceLandmarks&&lastF.faceLandmarks[0],t||0);fNew=false}
  FX.renderFrame(H,G,t||0,headE);
  if(H.length)handSeen=true;
- wT+=16;if(wT>7000){wT=0;
-  if(!HL)FX.toast('🧠 model load nahi hua — retry chal raha hai ['+detErr+']');
-  else if(!handSeen)FX.toast('🖐 haath camera me dikhao (20-30 cm)')}
+ wT+=16;if(wT>8000){wT=0;
+  if(!HL)FX.toast('🧠 model load nahi hua — retry ['+detErr+']');
+  else if(!handSeen)FX.toast('ontouchstart'in window?'🖐 haath camera me dikhao — phone seedha (portrait) rakho':'🖐 haath camera me dikhao (20-30 cm)')}
  if(hud)hud.textContent='FPS '+(fps|0)+' • HANDS '+H.length+' • ENG '+eng+(detErr?' ❌'+detErr:' ✔');
  requestAnimationFrame(loop)})();
 window.APP1_OK=true;
