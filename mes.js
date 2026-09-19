@@ -1,4 +1,4 @@
-/* mes.js v2 — voice-free: handle local, focus mode, handMode */
+/* mes.js v2 — local intent engine + undo */
 (()=>{
 const COLORS={laal:'#ff3355',red:'#ff3355',neela:'#33aaff',blue:'#33aaff',hara:'#33ff88',green:'#33ff88',
  pila:'#ffee33',yellow:'#ffee33',narangi:'#ff8833',baingani:'#aa44ff',safed:'#ffffff',kala:'#222222'};
@@ -22,17 +22,18 @@ function findTarget(t){const es=entities();let best=null;
  return null}
 function argsOf(t){const a={};
  for(const k in TYPES)if(t.includes(k)){a.type=TYPES[k];break}
- const dg=t.match(/(\d+)\s*(degree|digri)/);a.deg=dg?+dg[1]:45;
+ const dg=t.match(/(\d+)\s*(degree|digri)/);a.deg=dg?+dg:45;
  for(const k in AX)if(t.includes(k)){a.axis=AX[k][0];a.dir=AX[k][1];break}
  if(/bada|scale up/.test(t))a.f=1.25;if(/chhota|small/.test(t))a.f=.8;
  if(/dugna|double/.test(t))a.f=2;if(/aadha|half/.test(t))a.f=.5;
  for(const k in COLORS)if(t.includes(k)){a.color=COLORS[k];break}
  return a}
 const INTENTS=[
- {id:'labels',syn:['naam dikhao','parts ke naam','label on','label mode']},
+ {id:'labels',syn:['naam dikhao','parts ke naam','label on','label mode','labels']},
  {id:'labeloff',syn:['label band','naam chhupao','label off']},
  {id:'clear',syn:['sab saaf','sab hatao','clear all']},
  {id:'copy',syn:['copy karo']},{id:'paste',syn:['paste karo']},
+ {id:'undo',syn:['undo','undo karo','wapas lao','pehle jaisa']},
  {id:'make',syn:['banao','banado','lao','laao','add','naya','morph','badlo']},
  {id:'delete',syn:['hatao','delete','mita']},
  {id:'color',syn:['rang','laal','neela','hara','pila','color']},
@@ -52,6 +53,7 @@ function exec(id,a,tg){const S3=api3();
   case'clear':P('clear');return{ok:true,msg:'Sab saaf'};
   case'copy':window.PROJ.copy();return{ok:true,msg:'Copy ho gaya'};
   case'paste':window.PROJ.paste();return{ok:true,msg:'Paste ho gaya'};
+  case'undo':{const r=P('undo');return r?{ok:true,msg:'↩ undo ho gaya'}:{ok:false,ask:'Kuch undo nahi hai'}};
   case'delete':if(part){S3.removePart(name,part);return{ok:true,msg:part+' hata diya'}}
    if(name||S3.count){P('del');return{ok:true,msg:(name||'object')+' hata diya'}}
    return{ok:false,ask:'Kaunsa object hatana hai?'};
@@ -95,7 +97,7 @@ function focus(on){S.focus=on;localStorage.setItem('mes-focus',on?'1':'');
  const v=document.getElementById('vid');if(v)v.style.display=on?'none':'';
  document.getElementById('wrap').classList.toggle('focus',on);
  if(window.SCENE3D)SCENE3D.setFocus(on);
- if(window.FX)FX.toast(on?'🌑 focus mode ON — sirf hands + objects':'☀️ focus OFF — sab visible')}
+ if(window.FX)FX.toast(on?'🌑 focus ON — sirf hands + objects':'☀️ focus OFF — sab visible')}
 function tickLabels(project){if(!S.labelOn)return;const L=document.getElementById('labels');if(!L)return;
  const seen={};
  for(const e of entities()){const items=[{n:e.name,p:e.obj.position}];
