@@ -2,7 +2,7 @@
 <html lang="hi">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>M-EDGESPACE — 3D Studio</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -34,12 +34,12 @@ canvas{position:absolute;inset:0;width:100%;height:100%}
 #chips button{border:1px solid #fff4;background:#000a;color:#fff;font:600 12px Consolas,monospace;border-radius:999px;padding:6px 12px;cursor:pointer}
 #toast{position:absolute;top:13%;left:50%;transform:translateX(-50%);background:#0ffd;color:#022;font:700 14px Consolas,monospace;padding:9px 20px;border-radius:999px;opacity:0;transition:.3s;z-index:9;pointer-events:none;white-space:nowrap}
 #toast.on{opacity:1}
-#menu{position:absolute;top:0;right:0;bottom:0;width:250px;background:#000d;backdrop-filter:blur(8px);z-index:7;padding:14px;flex-direction:column;gap:9px;color:#cff;font:13px Consolas,monospace}
+#menu{position:absolute;top:0;right:0;bottom:0;width:250px;background:rgba(2,6,12,.97);z-index:7;padding:14px;flex-direction:column;gap:9px;color:#cff;font:13px Consolas,monospace;overflow:auto}
 #menu label{display:flex;justify-content:space-between;align-items:center;gap:8px}
 #menu input{width:20px;height:20px;accent-color:#0ff}
 #menu button{border:1px solid #0ff6;background:#0ff2;color:#aff;font:700 13px Consolas;border-radius:10px;padding:9px;cursor:pointer}
 #handMode{background:#000a;color:#aff;border:1px solid #0ff5;border-radius:8px;padding:6px;font:11px Consolas;width:100%}
-#ppanel{position:absolute;inset:0;z-index:9;background:#000c;backdrop-filter:blur(6px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px;color:#cff}
+#ppanel{position:absolute;inset:0;z-index:9;background:rgba(2,6,12,.97);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px;color:#cff}
 #pGrid{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:700px;max-height:52vh;overflow:auto}
 #npName{background:#000a;border:1px solid #0ff5;color:#aff;font:13px Consolas,monospace;border-radius:10px;padding:9px;outline:none;width:180px}
 #ppanel .row button{border:1px solid #0ff6;background:#0ff2;color:#aff;font:700 13px Consolas;border-radius:10px;padding:9px 14px;cursor:pointer}
@@ -51,6 +51,17 @@ canvas{position:absolute;inset:0;width:100%;height:100%}
 #home h1{font-size:40px;letter-spacing:6px;background:linear-gradient(90deg,#0ff,#f0f,#0ff);-webkit-background-clip:text;background-clip:text;color:transparent}
 #camBtn{border:none;border-radius:12px;padding:15px 38px;font:700 17px Consolas,monospace;color:#001;background:linear-gradient(90deg,#0ff,#7f5);box-shadow:0 0 25px #0ff8;cursor:pointer}
 #stat{color:#f66;font:12px Consolas,monospace;min-height:16px}
+@media(max-width:640px){
+ #chips{bottom:6px;gap:4px}
+ #chips button{padding:5px 9px;font-size:11px}
+ #chat{width:150px;height:36px}#chat.open{width:88vw;height:40vh}
+ #menu{width:80vw}
+ #topbar{font-size:11px}
+ #hud{font-size:9px;top:38px}
+ #cmd{font-size:12px;padding:8px}
+ #mbtn,#bbtn{padding:5px 8px;font-size:16px}
+ #home h1{font-size:30px}
+}
 </style>
 </head>
 <body>
@@ -68,8 +79,9 @@ canvas{position:absolute;inset:0;width:100%;height:100%}
   <button data-c="cube lao">🧊 cube</button><button data-c="sphere banao">⚪ sphere</button>
   <button data-c="bottle banao">🍶 bottle</button><button data-c="ghumao 45 degree">🔄 45°</button>
   <button data-c="bada karo">➕ size</button><button data-c="laal karo">🎨 laal</button>
-  <button data-c="naam dikhao">🏷️ labels</button><button data-c="copy karo">📋 copy</button>
-  <button data-c="paste karo">📥 paste</button><button data-c="sab saaf">🧹</button>
+  <button data-c="labels">🏷️ labels</button><button data-c="copy karo">📋 copy</button>
+  <button data-c="paste karo">📥 paste</button><button data-c="undo karo">↩ undo</button>
+  <button data-c="sab saaf">🧹</button>
  </div>
  <div id="toast"></div>
  <aside id="menu" style="display:none">
@@ -86,7 +98,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%}
   <button id="bSave">📸 Photo Save Karo</button>
   <div style="opacity:.6;font-size:11px;line-height:1.6">
    🌑 Focus = black studio (sirf hands + 3D objects)<br>
-   GESTURES: 👉hold=select+drag-rotate • 🤏pinch=size • 🖐palm=move • ✊hold=delete • ✊flash=deselect • 👉👉=morph</div>
+   GESTURES: 👉hold=select+drag-rotate • 🤏pinch=size • 🖐palm=move • ✊hold=delete • ✊flash=deselect • 👉👉obj=morph • 👉👉khali=cube spawn • ↩ undo</div>
  </aside>
  <div id="ppanel" style="display:none">
   <b style="color:#0ff;font-size:15px">📁 PROJECTS</b>
