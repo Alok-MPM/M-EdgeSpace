@@ -1,4 +1,4 @@
-/* studio3d.js v10 — hands rendering removed from Three (2D canvas handles it) */
+/* studio3d.js v11 — stable bbox selection + smoothed gestures + undo + dbl-tap spawn */
 import*as THREE from'three';
 import{GLTFLoader}from'three/addons/loaders/GLTFLoader.js';
 const cv3=document.getElementById('cv3');
@@ -9,8 +9,8 @@ scene.add(new THREE.AmbientLight(0xffffff,.75));
 const dl=new THREE.DirectionalLight(0x88eeff,.9);dl.position.set(2,3,4);scene.add(dl);
 const grid=new THREE.GridHelper(24,48,0x0f3f3f,0x0a2525);
 grid.material.transparent=true;grid.material.opacity=.35;grid.position.y=-1.6;grid.visible=false;scene.add(grid);
-let objs=[],sel=null,oid=0,helper=null,lastName='',selName='',counts={};
-let pin0=null,prevTip=null;
+let objs=[],sel=null,oid=0,helper=null,lastName='',selName='',counts={},hist=[];
+let pin0=null,prevTip=null,rotE={x:0,y:0};
 const ray=new THREE.Raycaster(),ndc=new THREE.Vector2(),PL=new THREE.Plane(new THREE.Vector3(0,0,1),0);
 const V=new THREE.Vector3();
 const resize=()=>{renderer.setSize(innerWidth,innerHeight,false);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix()};
@@ -18,6 +18,7 @@ addEventListener('resize',resize);resize();
 const mat=h=>new THREE.MeshStandardMaterial({color:new THREE.Color(`hsl(${h},80%,55%)`),metalness:.3,roughness:.4,transparent:true,opacity:.92});
 const geo=t=>t==='sphere'?new THREE.SphereGeometry(.6,20,14):t==='cyl'?new THREE.CylinderGeometry(.45,.45,1.1,18):t==='torus'?new THREE.TorusGeometry(.55,.2,12,24):new THREE.BoxGeometry(1,1,1);
 const save=()=>{if(window.PROJ)window.PROJ.touch()};
+const pushHist=()=>{hist.push(dump());if(hist.length>12)hist.shift()};
 function nameFor(t){counts[t]=(counts[t]||0)+1;return t+' '+counts[t]}
 function bottleGroup(h){const g=new THREE.Group();
  const body=new THREE.Mesh(new THREE.CylinderGeometry(.35,.35,1.1,16),mat(h));body.name='bottle_body';
@@ -52,18 +53,26 @@ function addRaw(o){const h=o.h!=null?o.h:Math.random()*360;
  scene.add(m);objs.push(m);return m}
 function loadArr(arr){objs.slice().forEach(m=>scene.remove(m));objs=[];select(null);counts={};
  (arr||[]).forEach(o=>addRaw(o));save()}
-function select(m){sel=m;selName=m?m.userData.mesName:'';pin0=null;prevTip=null;
+function select(m){sel=m;selName=m?m.userData.mesName:'';pin0=null;prevTip=null;rotE={x:0,y:0};
  if(helper){scene.remove(helper);helper=null}
  if(m){helper=new THREE.BoxHelper(m,0xffff00);scene.add(helper)}}
-const rootOf=o=>{while(o&&(!o.userData||!o.userData.mesName))o=o.parent;return o};
-const pick=pt=>{ndc.set(pt.x/innerWidth*2-1,-(pt.y/innerHeight)*2+1,0);ray.setFromCamera(ndc,cam);
- const h=ray.intersectObjects(objs,true)[0];return h?rootOf(h.object):null};
+/* stable screen-space bbox pick */
+function pick(pt){let best=null,bd=1e9;
+ for(const o of objs){const b=new THREE.Box3().setFromObject(o);
+  const c=b.getCenter(new THREE.Vector3());
+  const r=b.getSize(new THREE.Vector3()).length()*.5;
+  const pc=project(c);const pr=project(c.clone().add(new THREE.Vector3(r,0,0)));
+  const rad=Math.hypot(pr.x-pc.x,pr.y-pc.y)+20;
+  const d=Math.hypot(pt.x-pc.x,pt.y-pc.y);
+  if(d<rad&&d<bd){bd=d;best=o}}
+ return best}
 const planePt=(pt,z)=>{ndc.set(pt.x/innerWidth*2-1,-(pt.y/innerHeight)*2+1,0);ray.setFromCamera(ndc,cam);
  PL.constant=-z;const v=new THREE.Vector3();return ray.ray.intersectPlane(PL,v)?v:null};
 const palm=p=>({x:(p[0].x+p[5].x+p[9].x+p[13].x+p[17].x)/5,y:(p[0].y+p[5].y+p[9].y+p[13].y+p[17].y)/5});
 const d2=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 function morph(m,t){if(!m||m.userData.t===t)return m;
  if(m.children&&m.children.length){return m}
+ pushHist();
  const g=['rect','sheet','tall'].includes(t)?'cube':t;
  if(m.userData.g!==g){const s=m.scale.clone(),r=m.rotation.clone(),p=m.position.clone(),
   h=m.userData.hue,id=m.userData.id,nm=m.userData.mesName,wasSel=sel===m;
@@ -85,16 +94,17 @@ function removePart(rootName,partName){return execPart('del',rootName,partName,{
 function setFocus(on){grid.visible=!!on}
 function exec(c){try{if(c.name){const m=objs.find(o=>o.userData.mesName===c.name);if(m)select(m)}
  const S=sel;switch(c.op){
- case'add':{const m=addObj(c.type||'cube');if(m)select(m);return m?1:0}
+ case'undo':{const h=hist.pop();if(!h)return 0;loadArr(h);return 1}
+ case'add':{pushHist();const m=addObj(c.type||'cube');if(m)select(m);return m?1:0}
  case'morph':return(morph(S||objs[objs.length-1],c.type)||{userData:{}}).userData?1:0;
  case'rot':if(S){S.rotation[c.axis||'y']+=(c.deg||45)*Math.PI/180;save()}return 1;
  case'scale':if(S){S.scale.multiplyScalar(THREE.MathUtils.clamp(c.f||1.2,.05,6));save()}return 1;
  case'stretch':if(S){S.scale[c.axis||'x']=THREE.MathUtils.clamp(S.scale[c.axis||'x']*(c.f||1.3),.02,8);save()}return 1;
  case'move':if(S){S.position.x+=c.x||0;S.position.y+=c.y||0;S.position.z+=c.z||0;save()}return 1;
  case'color':if(S){S.traverse(n=>{if(n.isMesh)n.material.color.set(c.color)});save()}return 1;
- case'del':if(S){scene.remove(S);objs=objs.filter(o=>o!==S);select(null);save()}return 1;
- case'clear':objs.forEach(m=>scene.remove(m));objs=[];select(null);counts={};save();return 1;
- case'dup':if(S){const c2=S.clone(true);c2.position.x+=1.2;
+ case'del':if(S){pushHist();scene.remove(S);objs=objs.filter(o=>o!==S);select(null);save()}return 1;
+ case'clear':if(objs.length)pushHist();objs.forEach(m=>scene.remove(m));objs=[];select(null);counts={};save();return 1;
+ case'dup':if(S){pushHist();const c2=S.clone(true);c2.position.x+=1.2;
   c2.userData={...S.userData,id:++oid,mesName:nameFor(S.userData.t)};scene.add(c2);objs.push(c2);save()}return 1;
  case'sel':select(objs[objs.length-1]||null);return 1;
  case'zoom':cam.position.z=THREE.MathUtils.clamp(cam.position.z+(c.d||-1),2,12);return 1;
@@ -120,30 +130,34 @@ function loop(){requestAnimationFrame(loop);renderer.render(scene,cam);
  }else if(g0!=='POINT')holdT=0;
  if(g0==='POINT'&&prevG!=='POINT')tapStart=now;
  if(g0!=='POINT'&&prevG==='POINT'){const dur=now-tapStart;
-  if(dur<350){const hit=pick(H[0][8]);
+  if(dur<350){const tp=H[0][8];const hit=pick(tp);
    if(now-tapT<900)tapN++;else tapN=1;tapT=now;
-   if(tapN===2&&sel&&hit===sel){morph(sel,['cube','rect','sheet','sphere'][(['cube','rect','sheet','sphere'].indexOf(sel.userData.t)+1)%4]);
-    FX.toast('🔁 morph: '+sel.userData.t);tapN=0}}else tapN=0}
+   if(tapN===2){tapN=0;
+    if(hit&&sel===hit)morph(sel,['cube','rect','sheet','sphere'][(['cube','rect','sheet','sphere'].indexOf(sel.userData.t)+1)%4]);
+    else if(hit)select(hit);
+    else{const pl=planePt(tp,0);if(pl){const m=addObj('cube',pl);FX.toast('🧊 cube spawn (double-tap)')}}}}
+  else tapN=0}
  if(sel){
   if(g0==='PINCH'){const pd=d2(H[0][4],H[0][8]);
    if(!pin0)pin0={pd,sc:sel.scale.x};
-   sel.scale.setScalar(THREE.MathUtils.clamp(pin0.sc*(pd/pin0.pd),.05,8));
+   const target=THREE.MathUtils.clamp(pin0.sc*(pd/pin0.pd),.05,8);
+   sel.scale.setScalar(sel.scale.x+(target-sel.scale.x)*.5);
   }else pin0=null;
-  if(g0==='PALM'){const pl=planePt(palm(H[0]),sel.position.z);if(pl)sel.position.lerp(pl,.35)}
+  if(g0==='PALM'){const pl=planePt(palm(H[0]),sel.position.z);if(pl)sel.position.lerp(pl,.25)}
   if(g0==='POINT'&&holdT>600){const tip=H[0][8];
-   if(prevTip){const dx=tip.x-prevTip.x,dy=tip.y-prevTip.y;
-    if(Math.abs(dx)>2)sel.rotation.y+=dx*.005;
-    if(Math.abs(dy)>2)sel.rotation.x+=dy*.005}
+   if(prevTip){let dx=tip.x-prevTip.x,dy=tip.y-prevTip.y;
+    if(Math.abs(dx)>3){rotE.y=rotE.y*.6+dx*.005*.4;sel.rotation.y+=rotE.y}
+    if(Math.abs(dy)>3){rotE.x=rotE.x*.6+dy*.005*.4;sel.rotation.x+=rotE.x}}
    prevTip={x:tip.x,y:tip.y};
   }else if(g0!=='POINT')prevTip=null;
  }else{pin0=null;prevTip=null}
  if(g0==='FIST'&&sel){fistT+=dt;
-  if(fistT>800){scene.remove(sel);objs=objs.filter(o=>o!==sel);select(null);save();FX.toast('🗑 delete');fistT=0}
+  if(fistT>800){pushHist();scene.remove(sel);objs=objs.filter(o=>o!==sel);select(null);save();FX.toast('🗑 delete (↩ undo available)');fistT=0}
  }else if(g0==='FIST')fistT+=dt;
  if(g0!=='FIST'){if(prevG==='FIST'&&fistT<400&&sel){select(null);FX.toast('👌 deselect')}fistT=0}
  const hd=FX.getHead();
  if(hd==='NOD'&&sel){save();FX.toast('💾 save/pin')}
- if(hd==='SHAKE'&&sel){scene.remove(sel);objs=objs.filter(o=>o!==sel);select(null);save();FX.toast('🗑 shake-delete')}
+ if(hd==='SHAKE'&&sel){pushHist();scene.remove(sel);objs=objs.filter(o=>o!==sel);select(null);save();FX.toast('🗑 shake-delete (↩ undo)')}
  if(helper)helper.update();prevG=g0}
 loop();
 window.S3D_OK=true;
