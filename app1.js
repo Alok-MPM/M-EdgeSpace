@@ -1,4 +1,4 @@
-/* app1.js v12 — canvas-feed detection (har device pe), auto CPU fallback, pause-fix */
+/* app1.js v13 — detect KABHI skip nahi hota (idle sirf sleep slow karta hai) */
 const FX=(()=>{
 const cv=document.getElementById('cv'),ctx=cv.getContext('2d'),wrap=document.getElementById('wrap'),toastEl=document.getElementById('toast');
 const S={opt:{skeleton:true,holo:false,perf:false,head:true}};
@@ -152,7 +152,7 @@ const MF='https://storage.googleapis.com/mediapipe-models/face_landmarker/face_l
 let HL=null,FL=null,flTried=false,lastH=null,lastW=null,lastF=null,fNew=false,eng='none',tick=0,lastHandT=0;
 let detErr='',detFail=0,fps=60,prevT=0,emptyN=0,cpuTried=false;
 const dcan=document.createElement('canvas');dcan.width=640;dcan.height=480;
-const dctx=dcan.getContext('2d',{willReadFrequently:false});
+const dctx=dcan.getContext('2d');
 addEventListener('touchstart',()=>{vid.play().catch(()=>{})},{once:true});
 async function vision(){const v=await import(TV);return{v,fs:await v.FilesetResolver.forVisionTasks(TV+'/wasm')}}
 async function mkH(d){const{v,fs}=await vision();return v.HandLandmarker.createFromOptions(fs,{baseOptions:{modelAssetPath:MH,delegate:d},runningMode:'VIDEO',numHands:2})}
@@ -169,7 +169,8 @@ const go=async()=>{try{
   let ok=await loadHL(),tries=0;
   while(!ok){tries++;FX.toast('🧠 model load fail #'+tries+' — 4s me retry ['+detErr+']');
    await new Promise(r=>setTimeout(r,4000));ok=await loadHL()}
-  FX.toast('🧠 hand model ON ('+eng+') — canvas-feed detect');
+  lastHandT=performance.now();
+  FX.toast('🧠 hand model ON ('+eng+')');
   if(window.PROJ)window.PROJ.startSession();
   if(window.MES&&MES.S.focus&&window.SCENE3D)SCENE3D.setFocus(true);
   detectLoop();
@@ -180,13 +181,13 @@ async function detectLoop(){while(true){
  if(document.hidden){await new Promise(r=>setTimeout(r,500));continue}
  const t=performance.now();
  const idle=t-lastHandT>6000;
- if(vid.readyState>=2&&HL&&!idle){
+ if(vid.readyState>=2&&HL){
   if(vid.paused)vid.play().catch(()=>{});
   try{dctx.drawImage(vid,0,0,640,480);
    lastH=HL.detectForVideo(dcan,t);lastW=lastH.worldLandmarks||null;detFail=0;
    if(lastH.landmarks&&lastH.landmarks.length){lastHandT=t;emptyN=0}
    else{emptyN++;
-    if(emptyN>150&&!cpuTried&&eng==='GPU'){cpuTried=true;FX.toast('🧠 GPU khali result de raha — CPU pe switch');
+    if(emptyN>150&&!cpuTried&&eng==='GPU'){cpuTried=true;FX.toast('🧠 GPU khali result — CPU pe switch');
      try{HL=await mkH('CPU');eng='CPU';emptyN=0}catch(e2){detErr=(e2.message||'').slice(0,50)}}}
   }catch(e){detFail++;detErr=(e.message||'').slice(0,50);
    if(detFail>20){detFail=0;const nx=eng==='GPU'?'CPU':'GPU';
@@ -218,7 +219,7 @@ let handSeen=false,wT=0;
  if(H.length)handSeen=true;
  wT+=16;if(wT>8000){wT=0;
   if(!HL)FX.toast('🧠 model load nahi hua — retry ['+detErr+']');
-  else if(!handSeen)FX.toast('ontouchstart'in window?'🖐 haath camera me dikhao — phone seedha (portrait) rakho':'🖐 haath camera me dikhao (20-30 cm)')}
+  else if(!handSeen)FX.toast('🖐 haath camera me dikhao (20-30 cm)')}
  if(hud)hud.textContent='FPS '+(fps|0)+' • HANDS '+H.length+' • ENG '+eng+
   (emptyN>30?' • EMPTY '+emptyN:'')+(detErr?' ❌'+detErr:' ✔');
  requestAnimationFrame(loop)})();
