@@ -1,4 +1,4 @@
-/* mes.js v2 — local intent engine + undo */
+/* mes.js v3 — tickLabels THREE-free (parent+local position) */
 (()=>{
 const COLORS={laal:'#ff3355',red:'#ff3355',neela:'#33aaff',blue:'#33aaff',hara:'#33ff88',green:'#33ff88',
  pila:'#ffee33',yellow:'#ffee33',narangi:'#ff8833',baingani:'#aa44ff',safed:'#ffffff',kala:'#222222'};
@@ -101,7 +101,8 @@ function focus(on){S.focus=on;localStorage.setItem('mes-focus',on?'1':'');
 function tickLabels(project){if(!S.labelOn)return;const L=document.getElementById('labels');if(!L)return;
  const seen={};
  for(const e of entities()){const items=[{n:e.name,p:e.obj.position}];
-  for(const pt of e.parts){const w=pt.obj.getWorldPosition(new THREE.Vector3());items.push({n:pt.name,p:w})}
+  for(const pt of e.parts){const gp=pt.obj.parent?pt.obj.parent.position:pt.obj.position;
+   items.push({n:pt.name,p:{x:gp.x+pt.obj.position.x,y:gp.y+pt.obj.position.y,z:gp.z+pt.obj.position.z}})}
   for(const it of items){seen[it.n]=1;let d=labels[it.n];
    if(!d){d=document.createElement('div');d.className='lbl';d.textContent=it.n;L.appendChild(d);labels[it.n]=d}
    const s=project(it.p);
