@@ -1,20 +1,23 @@
-/* studio3d.js v12 — quality fix: correct colors, tone mapping, env reflections, no forced fade on imports */
+/* studio3d.js v13 — fixed pinch-scale (no jump/wall bug), balanced color+shine, perf auto-downgrade */
 import*as THREE from'three';
 import{GLTFLoader}from'three/addons/loaders/GLTFLoader.js';
 import{RoomEnvironment}from'three/addons/environments/RoomEnvironment.js';
 const cv3=document.getElementById('cv3');
-const renderer=new THREE.WebGLRenderer({canvas:cv3,alpha:true,antialias:true,powerPreference:'high-performance'});
-renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+const dprCap=1.5; // pehle 2 tha — zyada pixels = zyada lag, iske bina bhi sharp dikhta hai
+const useAA=(window.devicePixelRatio||1)<=1; // high-DPI screen pe dpr khud hi AA jaisa kaam karta hai, extra AA ki zaroorat nahi
+const renderer=new THREE.WebGLRenderer({canvas:cv3,alpha:true,antialias:useAA,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,dprCap));
 renderer.outputColorSpace=THREE.SRGBColorSpace;
 renderer.toneMapping=THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure=1.1;
+renderer.toneMappingExposure=1.0;
 const scene=new THREE.Scene(),cam=new THREE.PerspectiveCamera(55,1,.1,100);cam.position.set(0,0,6);
-scene.add(new THREE.AmbientLight(0xffffff,.6));
-const dl=new THREE.DirectionalLight(0xffffff,1.2);dl.position.set(2,3,4);scene.add(dl);
-const dl2=new THREE.DirectionalLight(0xffffff,.45);dl2.position.set(-3,-2,-2);scene.add(dl2);
-// environment map — isse metal/shiny surfaces pe reflection aayega (real object jaisa look)
+scene.add(new THREE.AmbientLight(0xffffff,.55));
+const dl=new THREE.DirectionalLight(0xffffff,.95);dl.position.set(2,3,4);scene.add(dl);
+const dl2=new THREE.DirectionalLight(0xffffff,.35);dl2.position.set(-3,-2,-2);scene.add(dl2);
+// environment map — shine ke liye, par intensity halki rakhi taaki asli color dabe nahi
 const pmrem=new THREE.PMREMGenerator(renderer);
-scene.environment=pmrem.fromScene(new RoomEnvironment(),0.04).texture;
+const envTex=pmrem.fromScene(new RoomEnvironment(),0.04).texture;
+scene.environment=envTex;
 const grid=new THREE.GridHelper(24,48,0x0f3f3f,0x0a2525);
 grid.material.transparent=true;grid.material.opacity=.35;grid.position.y=-1.6;grid.visible=false;scene.add(grid);
 let objs=[],sel=null,oid=0,helper=null,lastName='',selName='',counts={},hist=[];
@@ -43,10 +46,10 @@ function importGLTF(file,cb){const url=URL.createObjectURL(file);
  new GLTFLoader().load(url,g=>{const root=g.scene;let i=0;
   root.traverse(n=>{if(n.isMesh){
    if(!n.name)n.name='part_'+(++i);
-   // original color/quality preserve karo — koi forced transparency nahi
    if(n.material){
     n.material.side=THREE.FrontSide;
     if(n.material.map)n.material.map.colorSpace=THREE.SRGBColorSpace;
+    n.material.envMapIntensity=0.6; // shine rahe par color dabe nahi
     n.material.needsUpdate=true;
    }
   }});
@@ -133,9 +136,17 @@ if(window.MES&&MES.S.focus)grid.visible=true;
 let holdT=0,fistT=0,prevG='',tapN=0,tapT=0,tapStart=0;
 const GST={};const stable=(i,g)=>{const s=GST[i]||(GST[i]={g:'',n:0});s.g===g?s.n++:(s.g=g,s.n=1);return s.n>=3};
 let last=performance.now();
+// perf auto-downgrade — agar FPS kam ho, khud pixelRatio ghata dega, gesture logic isse touch nahi hota
+let fpsBuf=[],downgraded=false;
+function checkPerf(dt){
+ fpsBuf.push(1000/dt);if(fpsBuf.length<90)return;
+ const avg=fpsBuf.reduce((a,b)=>a+b,0)/fpsBuf.length;fpsBuf=[];
+ if(avg<24&&!downgraded){downgraded=true;renderer.setPixelRatio(1);FX.toast('⚡ perf mode auto-on (lag kam)')}
+}
 function loop(){requestAnimationFrame(loop);renderer.render(scene,cam);
  if(window.MES&&MES.S.labelOn)MES.tickLabels(project);
  const now=performance.now(),dt=now-last;last=now;
+ checkPerf(dt);
  const{H,G}=FX.getHands();const g0=G[0]||'';
  if(prevG!==g0&&sel)save();
  if(!H||!H.length){holdT=0;fistT=0;pin0=null;prevTip=null;prevG='';return}
@@ -152,10 +163,16 @@ function loop(){requestAnimationFrame(loop);renderer.render(scene,cam);
     else{const pl=planePt(tp,0);if(pl){const m=addObj('cube',pl);FX.toast('🧊 cube spawn (double-tap)')}}}}
   else tapN=0}
  if(sel){
-  if(g0==='PINCH'){const pd=d2(H[0][4],H[0][8]);
-   if(!pin0)pin0={pd,sc:sel.scale.x};
-   const target=THREE.MathUtils.clamp(pin0.sc*(pd/pin0.pd),.05,8);
-   sel.scale.setScalar(sel.scale.x+(target-sel.scale.x)*.5);
+  if(g0==='PINCH'){
+   const pd=d2(H[0][4],H[0][8]);
+   // FIX: absolute anchor ki jagah har-frame ka chhota delta — isse jump/wall bug nahi aata
+   if(pin0!=null&&pin0>0){
+    const rawFactor=pd/pin0;
+    const factor=THREE.MathUtils.clamp(rawFactor,.85,1.15); // per-frame max ±15% — smooth rehta hai
+    const newScale=THREE.MathUtils.clamp(sel.scale.x*factor,.05,8);
+    sel.scale.setScalar(sel.scale.x+(newScale-sel.scale.x)*.6); // thoda lerp — jitter kam karta hai
+   }
+   pin0=pd;
   }else pin0=null;
   if(g0==='PALM'){const pl=planePt(palm(H[0]),sel.position.z);if(pl)sel.position.lerp(pl,.25)}
   if(g0==='POINT'&&holdT>600){const tip=H[0][8];
