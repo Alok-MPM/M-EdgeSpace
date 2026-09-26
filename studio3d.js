@@ -1,12 +1,20 @@
-/* studio3d.js v11 — stable bbox selection + smoothed gestures + undo + dbl-tap spawn */
+/* studio3d.js v12 — quality fix: correct colors, tone mapping, env reflections, no forced fade on imports */
 import*as THREE from'three';
 import{GLTFLoader}from'three/addons/loaders/GLTFLoader.js';
+import{RoomEnvironment}from'three/addons/environments/RoomEnvironment.js';
 const cv3=document.getElementById('cv3');
-const renderer=new THREE.WebGLRenderer({canvas:cv3,alpha:true,antialias:false,powerPreference:'low-power'});
-renderer.setPixelRatio(1);
+const renderer=new THREE.WebGLRenderer({canvas:cv3,alpha:true,antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.1;
 const scene=new THREE.Scene(),cam=new THREE.PerspectiveCamera(55,1,.1,100);cam.position.set(0,0,6);
-scene.add(new THREE.AmbientLight(0xffffff,.75));
-const dl=new THREE.DirectionalLight(0x88eeff,.9);dl.position.set(2,3,4);scene.add(dl);
+scene.add(new THREE.AmbientLight(0xffffff,.6));
+const dl=new THREE.DirectionalLight(0xffffff,1.2);dl.position.set(2,3,4);scene.add(dl);
+const dl2=new THREE.DirectionalLight(0xffffff,.45);dl2.position.set(-3,-2,-2);scene.add(dl2);
+// environment map — isse metal/shiny surfaces pe reflection aayega (real object jaisa look)
+const pmrem=new THREE.PMREMGenerator(renderer);
+scene.environment=pmrem.fromScene(new RoomEnvironment(),0.04).texture;
 const grid=new THREE.GridHelper(24,48,0x0f3f3f,0x0a2525);
 grid.material.transparent=true;grid.material.opacity=.35;grid.position.y=-1.6;grid.visible=false;scene.add(grid);
 let objs=[],sel=null,oid=0,helper=null,lastName='',selName='',counts={},hist=[];
@@ -33,11 +41,18 @@ function addObj(type,pos){try{const h=Math.random()*360;
 }catch(e){console.error('addObj fail:',e);FX.toast('❌ addObj fail: '+e.message);return null}}
 function importGLTF(file,cb){const url=URL.createObjectURL(file);
  new GLTFLoader().load(url,g=>{const root=g.scene;let i=0;
-  root.traverse(n=>{if(n.isMesh){if(!n.name)n.name='part_'+(++i);
-   if(!n.material.transparent){n.material.transparent=true;n.material.opacity=.95}}});
+  root.traverse(n=>{if(n.isMesh){
+   if(!n.name)n.name='part_'+(++i);
+   // original color/quality preserve karo — koi forced transparency nahi
+   if(n.material){
+    n.material.side=THREE.FrontSide;
+    if(n.material.map)n.material.map.colorSpace=THREE.SRGBColorSpace;
+    n.material.needsUpdate=true;
+   }
+  }});
   root.position.set(0,0,0);root.userData={id:++oid,hue:0,t:'model',g:'model',mesName:nameFor('model')};
   lastName=root.userData.mesName;scene.add(root);objs.push(root);save();cb&&cb(root.userData.mesName)},
-  undefined,e=>cb&&cb(null))}
+  undefined,e=>{console.error('GLTF load fail:',e);cb&&cb(null)})}
 const dumpOne=m=>({t:m.userData.t,g:m.userData.g,p:m.position.toArray(),
  r:[m.rotation.x,m.rotation.y,m.rotation.z],s:m.scale.toArray(),h:m.userData.hue,
  parts:m.children?m.children.filter(c=>c.name).map(c=>({name:c.name,p:c.position.toArray(),s:c.scale.toArray()})):[]});
@@ -56,7 +71,6 @@ function loadArr(arr){objs.slice().forEach(m=>scene.remove(m));objs=[];select(nu
 function select(m){sel=m;selName=m?m.userData.mesName:'';pin0=null;prevTip=null;rotE={x:0,y:0};
  if(helper){scene.remove(helper);helper=null}
  if(m){helper=new THREE.BoxHelper(m,0xffff00);scene.add(helper)}}
-/* stable screen-space bbox pick */
 function pick(pt){let best=null,bd=1e9;
  for(const o of objs){const b=new THREE.Box3().setFromObject(o);
   const c=b.getCenter(new THREE.Vector3());
