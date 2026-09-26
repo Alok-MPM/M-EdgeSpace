@@ -1,10 +1,10 @@
-/* HOLO HAND FX — fx.js */
+/* HOLO HAND FX — fx.js v2 — move/size gestures redesigned: precise palm-move, 2-hand distance size (freeze on hand-loss, no jump) */
 const FX=(()=>{
 const cv=document.getElementById('cv'),ctx=cv.getContext('2d'),wrap=document.getElementById('wrap');
 const toastEl=document.getElementById('toast');
 const DESIGNS=['AUTO','GLASS','HOLO','STATIC','NEON','PORTAL','SPARK','SLAB'];
 const S={opt:{skeleton:true,glitch:true,holo:false,spin:true,perf:false,head:true},
- objs:[],sel:null,design:'AUTO',grab:null};
+ objs:[],sel:null,design:'AUTO',move:null,sizeAnchor:null};
 let oid=0,smooth=[],prevPinch=[false,false],pendSel=null,pendT=0,toastT=0,vidEl=null,noisePat=null,liveAuto=[];
 let lastH=[],lastG=[],lastHead=null;
 const D=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
@@ -142,25 +142,37 @@ function renderFrame(H,G,t,headE){
  if(G.includes('POINT')){const tip=H[G.indexOf('POINT')][8];
   const hit=S.objs.filter(o=>o.pinned).find(o=>{const b=bb(qOf(o));
    return tip.x>b.x-10&&tip.x<b.x+b.w+10&&tip.y>b.y-10&&tip.y<b.y+b.h+10});
-  if(hit){if(pendSel===hit.id&&t-pendT>600){S.sel=hit.id;S.grab=null;toast('🎯 select — palm=move, pinch=size')}
+  if(hit){if(pendSel===hit.id&&t-pendT>600){S.sel=hit.id;S.move=null;S.sizeAnchor=null;
+    toast('🎯 select — palm=move, 2-haath=size')}
    else if(pendSel!==hit.id){pendSel=hit.id;pendT=t}}
   else pendSel=null}
  else pendSel=null;
  const selObj=S.objs.find(o=>o.id===S.sel);
- if(selObj){const hi=H.findIndex((p,i)=>G[i]==='PALM'),hj=H.findIndex((p,i)=>G[i]==='PINCH');
-  if(hi>=0){const c=palm(H[hi]);if(!S.grab)S.grab={ox:c.x-selObj.c.x,oy:c.y-selObj.c.y,pd:0};
-   selObj.c={x:c.x-S.grab.ox,y:c.y-S.grab.oy}}
-  if(hj>=0){const pd=D(H[hj][4],H[hj][8]);
-   if(S.grab&&S.grab.pd)selObj.size=Math.max(30,S.grab.size*(pd/S.grab.pd));
-   S.grab={...(S.grab||{}),pd:pd||S.grab?.pd,size:selObj.size}}
-  if(G.includes('FIST')){S.objs=S.objs.filter(o=>o.id!==S.sel);S.sel=null;S.grab=null;toast('🗑 delete')}}
+ if(selObj){
+  // MOVE — sirf PALM se. Hand naya (ya wapas aaya) toh isi frame se fresh anchor — purana offset kabhi carry nahi hota, isliye exact jagah pe jaata hai
+  const hi=H.findIndex((p,i)=>G[i]==='PALM');
+  if(hi>=0){const c=palm(H[hi]);
+   if(!S.move||S.move.hand!==hi)S.move={hand:hi,ox:c.x-selObj.c.x,oy:c.y-selObj.c.y};
+   selObj.c={x:c.x-S.move.ox,y:c.y-S.move.oy};
+  }else S.move=null;
+
+  // SIZE — dono haath ki doori se control. Ek baar dono haath present hote hi current size ko anchor bana lete hain,
+  // phir doori badhne/ghatne ke ratio se size update hota hai (delta-based, koi jump nahi).
+  // Jaise hi koi haath hata, anchor clear — size wahi ruka rehta hai (freeze), agli baar current size se hi continue hota hai.
+  if(H.length===2){const dist=D(palm(H[0]),palm(H[1]));
+   if(!S.sizeAnchor)S.sizeAnchor={dist,size:selObj.size};
+   else selObj.size=Math.max(20,S.sizeAnchor.size*(dist/S.sizeAnchor.dist));
+  }else S.sizeAnchor=null;
+
+  if(G.includes('FIST')){S.objs=S.objs.filter(o=>o.id!==S.sel);S.sel=null;S.move=null;S.sizeAnchor=null;toast('🗑 delete')}
+ }
  if(headE&&S.opt.head){
-  if(headE==='NOD'){if(S.sel){S.sel=null;S.grab=null;toast('✅ select chhoda')}
+  if(headE==='NOD'){if(S.sel){S.sel=null;S.move=null;S.sizeAnchor=null;toast('✅ select chhoda')}
    else{let n=0;S.objs.forEach(o=>{if(o.hand!=null){o.hand=null;o.pinned=true;n++}});
     liveAuto.forEach(l=>{S.objs.push({id:++oid,type:l.type,c:cent(l.q),size:D(l.q[0],l.q[1])/2,
      hue:(t/4)%360,hand:null,pinned:true,rot:0});n++});
     toast(n?'📌 '+n+' design screen par PIN!':'🙂 nod — koi live design nahi')}}
-  else if(headE==='SHAKE'){if(S.sel){S.objs=S.objs.filter(o=>o.id!==S.sel);S.sel=null;S.grab=null;toast('🗑 hataya')}
+  else if(headE==='SHAKE'){if(S.sel){S.objs=S.objs.filter(o=>o.id!==S.sel);S.sel=null;S.move=null;S.sizeAnchor=null;toast('🗑 hataya')}
    else{const b=S.objs.length;S.objs=S.objs.filter(o=>o.pinned&&o.hand==null&&false||o.pinned);
     S.objs=S.objs.filter(o=>o.hand==null);toast('🙅 shake — live designs hate')}}}
  S.objs.forEach(o=>drawObj(o,t));
