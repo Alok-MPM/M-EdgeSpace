@@ -1,6 +1,10 @@
-const C='holo-v11';
+const C='holo-v12'; // version bump — purana cache clear hoke naya code force-load hoga
 self.addEventListener('install',e=>{self.skipWaiting();
- e.waitUntil(caches.open(C).then(c=>c.addAll(['./','./index.html','./app1.js','./mes.js','./app2.js','./studio3d.js','./sw.js'])))});
+ e.waitUntil(caches.open(C).then(c=>c.addAll([
+  './','./index.html','./style.css',
+  './app1.js','./mes.js','./app2.js','./fx.js','./projects.js','./studio3d.js',
+  './sw.js'
+ ])))});
 self.addEventListener('activate',e=>e.waitUntil((async()=>{
  for(const k of await caches.keys())if(k!==C)await caches.delete(k);
  await clients.claim()})()));
